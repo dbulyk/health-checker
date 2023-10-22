@@ -1,4 +1,4 @@
-module healthChecker
+module health-checker
 
 go 1.21
 

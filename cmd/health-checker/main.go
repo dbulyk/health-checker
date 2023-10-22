@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"healthChecker/config"
+	"health-checker/config"
 	"log/slog"
 	"net/http"
 	"os"
@@ -68,7 +68,7 @@ func updateCPULoad() {
 	}
 }
 
-func checkCPUAndRAMLoad(w http.ResponseWriter, r *http.Request) {
+func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
 	loadLock.Lock()
 	cpuLoad := lastCPULoad
 	loadLock.Unlock()

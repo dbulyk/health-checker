@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"log/slog"
+
 	"time"
 
 	"github.com/caarlos0/env/v6"
