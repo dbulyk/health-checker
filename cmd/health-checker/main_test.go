@@ -45,6 +45,7 @@ func TestCheckCPUAndRAMLoad(t *testing.T) {
 	lastCPULoad = 90.0
 	loadLock.Unlock()
 
+	w = httptest.NewRecorder()
 	checkCPUAndRAMLoad(w, req)
 
 	expectedStatus = http.StatusServiceUnavailable

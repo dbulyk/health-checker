@@ -113,9 +113,9 @@ func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
 	slog.Info("utilization", "cpu", cpuLoad, "memory", memoryUsage)
 
 	if cpuLoad > cfg.Threshold || memoryUsage > cfg.Threshold {
-		http.Error(w, "CPU or RAM utilization above the threshold", http.StatusServiceUnavailable)
 		w.WriteHeader(http.StatusServiceUnavailable)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
