@@ -13,7 +13,7 @@ it will return a 503 error (StatusServiceUnavailable) to the client.
 | -p / PORT           | Port on which the health checker will listen for requests                                                          | 8080       |
 | -a / ADDRESS        | Address on which the health checker will listen for requests                                                       | localhost  |
 
-Note that if both flags and environment variables are specified, flags have higher priority
+Note that if both flags and environment variables are specified, environment variables have higher priority
 
 ## Usage
 Compile the application with `go build` and run it with `./cmd`. Specify flags as needed. 

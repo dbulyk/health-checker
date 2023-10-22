@@ -18,14 +18,26 @@ import (
 var (
 	lastCPULoad float64
 	loadLock    sync.Mutex
-	cfg         = config.GetCheckerCfg()
+	cfg         config.Checker
 )
 
 func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	go updateCPULoad()
+	cfg = config.GetCheckerCfg()
+
+	if cfg.Interval < 0 {
+		slog.Error("invalid interval, it should be greater than 0", "interval", cfg.Interval)
+		return
+	}
+
+	go func() {
+		err := updateCPULoad(cfg.Interval, sigs)
+		if err != nil {
+			slog.Error("cpu load error", "error", err)
+		}
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -52,19 +64,38 @@ func main() {
 	slog.Info("server stopped")
 }
 
-func updateCPULoad() {
-	for {
-		percentages, err := cpu.Percent(cfg.Interval, false)
-		if err != nil {
-			slog.Error("cpu load error", "error", err)
-			time.Sleep(cfg.Interval)
-			continue
-		}
+func updateCPULoad(interval time.Duration, sigs chan os.Signal) error {
+	percentages, err := cpu.Percent(time.Second, false)
+	if err != nil {
+		slog.Error("cpu load error", "error", err)
+		return err
+	}
 
-		loadLock.Lock()
-		lastCPULoad = percentages[0]
-		loadLock.Unlock()
-		slog.Info("cpu load updated", "load", lastCPULoad)
+	loadLock.Lock()
+	lastCPULoad = percentages[0]
+	loadLock.Unlock()
+	slog.Info("cpu load updated", "load", lastCPULoad)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			percentages, err = cpu.Percent(interval, false)
+			if err != nil {
+				slog.Error("cpu load error", "error", err)
+				time.Sleep(interval)
+				return err
+			}
+
+			loadLock.Lock()
+			lastCPULoad = percentages[0]
+			loadLock.Unlock()
+			slog.Info("cpu load updated", "load", lastCPULoad)
+		case <-sigs:
+			return nil
+		}
 	}
 }
 
@@ -83,6 +114,7 @@ func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
 
 	if cpuLoad > cfg.Threshold || memoryUsage > cfg.Threshold {
 		http.Error(w, "CPU or RAM utilization above the threshold", http.StatusServiceUnavailable)
+		w.WriteHeader(http.StatusServiceUnavailable)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
