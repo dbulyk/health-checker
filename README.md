@@ -16,7 +16,7 @@ it will return a 503 error (StatusServiceUnavailable) to the client.
 Note that if both flags and environment variables are specified, environment variables have higher priority
 
 ## Usage
-Compile the application with `go build` and run it with `./cmd`. Specify flags as needed. 
+Compile the application with `go build` and run it with `./health-checker`. Specify flags as needed. 
 The health checker will listen for requests on the specified port and address.
 
 ## Example
