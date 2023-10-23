@@ -20,4 +20,4 @@ Compile the application with `go build` and run it with `./cmd`. Specify flags a
 The health checker will listen for requests on the specified port and address.
 
 ## Example
-`./health-checker -i 10 -u 90 -p 8080 -a localhost`
+`./health-checker -i 10s -u 90 -p 8080 -a localhost`
