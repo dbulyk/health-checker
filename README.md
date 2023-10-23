@@ -2,7 +2,7 @@
 health-checker is a small application for checking the health of a service. 
 It is designed to be used in an environment where the service may be running on a different host than the 
 health checker. The health checker will poll the service for CPU and RAM utilization and if it exceeds a certain threshold, 
-it will return a 503 error (StatusServiceUnavailable) to the client.
+it will return a 503 error (StatusServiceUnavailable) to the client. In other cases, it returns a 200 (StatusOK) response.
 
 
 ## Flags/Environment Variables

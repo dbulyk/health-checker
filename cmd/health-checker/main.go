@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"health-checker/config"
 	"log"
 	"log/slog"
 	"net/http"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -17,9 +19,12 @@ import (
 )
 
 var (
-	lastCPULoad float64
-	loadLock    sync.Mutex
-	cfg         config.Checker
+	lastCPULoad      float64
+	totalMemoryUsage float64
+	cpuLoadLock      sync.Mutex
+	ramLoadLock      sync.Mutex
+	cfg              config.Checker
+	pollCount        atomic.Int64
 )
 
 func main() {
@@ -37,6 +42,15 @@ func main() {
 		err := updateCPULoad(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("cpu load error", "error", err)
+			stop()
+		}
+	}()
+
+	go func() {
+		err := updateMemoryLoad(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("memory load error", "error", err)
+			stop()
 		}
 	}()
 
@@ -72,14 +86,13 @@ func main() {
 func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	percentages, err := cpu.Percent(time.Second, false)
 	if err != nil {
-		slog.Error("cpu load error", "error", err)
 		return err
 	}
 
-	loadLock.Lock()
+	cpuLoadLock.Lock()
 	lastCPULoad = percentages[0]
-	loadLock.Unlock()
-	slog.Info("cpu load updated", "load", lastCPULoad)
+	cpuLoadLock.Unlock()
+	slog.Info("cpu", "load", lastCPULoad)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -89,15 +102,13 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 		case <-ticker.C:
 			percentages, err = cpu.Percent(interval, false)
 			if err != nil {
-				slog.Error("cpu load error", "error", err)
-				time.Sleep(interval)
 				return err
 			}
 
-			loadLock.Lock()
+			cpuLoadLock.Lock()
 			lastCPULoad = percentages[0]
-			loadLock.Unlock()
-			slog.Info("cpu load updated", "load", lastCPULoad)
+			cpuLoadLock.Unlock()
+			slog.Info("cpu", "load", lastCPULoad)
 		case <-ctx.Done():
 			slog.Info("cpu load update stopped")
 			return nil
@@ -105,23 +116,67 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	}
 }
 
-func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
-	loadLock.Lock()
-	cpuLoad := lastCPULoad
-	loadLock.Unlock()
-
+func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 	memoryInfo, err := mem.VirtualMemory()
 	if err != nil {
-		slog.Error("memory info error", "error", err)
+		return err
 	}
 	memoryUsage := memoryInfo.UsedPercent
+
+	pollCount.Store(1)
+	ramLoadLock.Lock()
+	totalMemoryUsage += memoryUsage
+	ramLoadLock.Unlock()
+
+	slog.Info("ram", "load", memoryUsage)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			memoryInfo, err = mem.VirtualMemory()
+			if err != nil {
+				return err
+			}
+			memoryUsage = memoryInfo.UsedPercent
+
+			ramLoadLock.Lock()
+			if pollCount.Load() > 5 {
+				totalMemoryUsage = memoryUsage
+				pollCount.Swap(1)
+			} else {
+				totalMemoryUsage += memoryUsage
+				pollCount.Add(1)
+			}
+			ramLoadLock.Unlock()
+
+			slog.Info("ram", "load", memoryUsage)
+		case <-ctx.Done():
+			slog.Info("memory utilization update stopped")
+			return nil
+		}
+	}
+}
+
+func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
+	cpuLoadLock.Lock()
+	cpuLoad := lastCPULoad
+	cpuLoadLock.Unlock()
+
+	ramLoadLock.Lock()
+	memoryUsage := totalMemoryUsage / float64(pollCount.Load())
+	ramLoadLock.Unlock()
 
 	slog.Info("utilization", "cpu", cpuLoad, "memory", memoryUsage)
 
 	if cpuLoad > cfg.Threshold || memoryUsage > cfg.Threshold {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
 }

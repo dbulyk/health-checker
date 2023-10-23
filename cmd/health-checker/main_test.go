@@ -30,9 +30,9 @@ func TestCheckCPUAndRAMLoad(t *testing.T) {
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 
-	loadLock.Lock()
+	cpuLoadLock.Lock()
 	lastCPULoad = 60.0
-	loadLock.Unlock()
+	cpuLoadLock.Unlock()
 
 	cfg = config.GetCheckerCfg()
 
@@ -41,9 +41,9 @@ func TestCheckCPUAndRAMLoad(t *testing.T) {
 	expectedStatus := http.StatusOK
 	assert.Equal(t, expectedStatus, w.Code, "status code %d was expected, but received %d", expectedStatus, w.Code)
 
-	loadLock.Lock()
+	cpuLoadLock.Lock()
 	lastCPULoad = 90.0
-	loadLock.Unlock()
+	cpuLoadLock.Unlock()
 
 	w = httptest.NewRecorder()
 	checkCPUAndRAMLoad(w, req)
@@ -51,7 +51,31 @@ func TestCheckCPUAndRAMLoad(t *testing.T) {
 	expectedStatus = http.StatusServiceUnavailable
 	assert.Equal(t, expectedStatus, w.Code, "status code %d was expected, but received %d", expectedStatus, w.Code)
 
-	loadLock.Lock()
+	cpuLoadLock.Lock()
 	lastCPULoad = 0.0
-	loadLock.Unlock()
+	cpuLoadLock.Unlock()
+
+	ramLoadLock.Lock()
+	totalMemoryUsage = 90.0
+	ramLoadLock.Unlock()
+	pollCount.Store(1)
+
+	w = httptest.NewRecorder()
+	checkCPUAndRAMLoad(w, req)
+
+	assert.Equal(t, expectedStatus, w.Code, "status code %d was expected, but received %d", expectedStatus, w.Code)
+}
+
+func Test_updateMemoryLoad(t *testing.T) {
+	interval := 2 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		cancel()
+	}()
+
+	err := updateMemoryLoad(ctx, interval)
+	assert.NoError(t, err)
 }
