@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"health-checker/config"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -12,17 +12,17 @@ import (
 )
 
 func TestUpdateCPULoad(t *testing.T) {
-	interval := 1 * time.Second
-	sigs := make(chan os.Signal)
+	interval := 2 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	go func() {
-		err := updateCPULoad(interval, sigs)
-		assert.NoError(t, err)
+		time.Sleep(5 * time.Second)
+		cancel()
 	}()
 
-	time.Sleep(3 * interval)
-
-	sigs <- os.Interrupt
+	err := updateCPULoad(ctx, interval)
+	assert.NoError(t, err)
 }
 
 func TestCheckCPUAndRAMLoad(t *testing.T) {

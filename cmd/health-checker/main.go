@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"health-checker/config"
+	"log"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -22,9 +23,6 @@ var (
 )
 
 func main() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
 	cfg = config.GetCheckerCfg()
 
 	if cfg.Interval < 0 {
@@ -32,39 +30,46 @@ func main() {
 		return
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	go func() {
-		err := updateCPULoad(cfg.Interval, sigs)
+		err := updateCPULoad(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("cpu load error", "error", err)
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	address := cfg.Address + ":" + cfg.Port
 
+	mux := http.NewServeMux()
 	srv := &http.Server{
 		Addr:              address,
 		ReadHeaderTimeout: 5 * time.Second,
+		Handler:           mux,
 	}
+	mux.HandleFunc("/", checkCPUAndRAMLoad)
 	slog.Info("server initialized at", "address", address)
-	http.HandleFunc("/", checkCPUAndRAMLoad)
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			slog.Error("server error,", "error", err)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server error: %v", err)
 		}
 	}()
 
-	<-sigs
-	if err := srv.Shutdown(ctx); err != nil {
+	<-ctx.Done()
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownContext); err != nil {
 		slog.Error("server shutdown error,", "error", err)
 	}
+
+	<-shutdownContext.Done()
 	slog.Info("server stopped")
 }
 
-func updateCPULoad(interval time.Duration, sigs chan os.Signal) error {
+func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	percentages, err := cpu.Percent(time.Second, false)
 	if err != nil {
 		slog.Error("cpu load error", "error", err)
@@ -93,7 +98,8 @@ func updateCPULoad(interval time.Duration, sigs chan os.Signal) error {
 			lastCPULoad = percentages[0]
 			loadLock.Unlock()
 			slog.Info("cpu load updated", "load", lastCPULoad)
-		case <-sigs:
+		case <-ctx.Done():
+			slog.Info("cpu load update stopped")
 			return nil
 		}
 	}

@@ -6,12 +6,12 @@ it will return a 503 error (StatusServiceUnavailable) to the client.
 
 
 ## Flags/Environment Variables
-| Flag                | Description                                                                                                        | Default    |
-|---------------------|--------------------------------------------------------------------------------------------------------------------|------------|
-| -i / CHECK_INTERVAL | Interval in seconds by which cpu resource utilization will be polled                                               | 60 seconds |
-| -u / THRESHOLD      | Utilization boundary in percent, after which the service will start returning 503 error (StatusServiceUnavailable) | 80         |
-| -p / PORT           | Port on which the health checker will listen for requests                                                          | 8080       |
-| -a / ADDRESS        | Address on which the health checker will listen for requests                                                       | localhost  |
+| Flag/Environment Variable | Description                                                                                                        | Default    |
+|---------------------------|--------------------------------------------------------------------------------------------------------------------|------------|
+| -i / CHECK_INTERVAL       | Interval in seconds by which cpu resource utilization will be polled                                               | 60 seconds |
+| -u / THRESHOLD            | Utilization boundary in percent, after which the service will start returning 503 error (StatusServiceUnavailable) | 80         |
+| -p / PORT                 | Port on which the health checker will listen for requests                                                          | 8080       |
+| -a / ADDRESS              | Address on which the health checker will listen for requests                                                       | localhost  |
 
 Note that if both flags and environment variables are specified, environment variables have higher priority
 
