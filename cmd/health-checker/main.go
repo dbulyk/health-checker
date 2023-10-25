@@ -85,20 +85,26 @@ func main() {
 }
 
 func updateCPULoad(ctx context.Context, interval time.Duration) error {
+	var (
+		percentages []float64
+		percentage  float64
+		err         error
+	)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			percentages, err := cpu.Percent(interval, true)
+			percentages, err = cpu.Percent(interval, true)
 			if err != nil {
 				return err
 			}
 
 			cpuLoadLock.Lock()
 			lastCPULoad = 0.0
-			for _, percentage := range percentages {
+			for _, percentage = range percentages {
 				lastCPULoad += percentage
 			}
 			cpuLoadLock.Unlock()
