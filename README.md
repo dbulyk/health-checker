@@ -20,4 +20,5 @@ Compile the application with `go build` or download it from releases and run it 
 The health checker will listen for requests on the specified port and address.
 
 ## Example
-`./health-checker -i 10s -u 90 -p 8080 -a localhost`
+For macOS, run `./health-checker -i 10s -u 90 -p 8080 -a localhost` or `CHECK_INTERVAL=10s THRESHOLD=90 PORT=8080 ADDRESS=localhost ./health-checker`
+For Windows, run `health-checker.exe -i 10s -u 90 -p 8080 -a localhost` or `CHECK_INTERVAL=10s THRESHOLD=90 PORT=8080 ADDRESS=localhost health-checker.exe`
