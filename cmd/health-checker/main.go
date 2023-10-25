@@ -9,13 +9,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os/signal"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 var (
@@ -84,31 +85,25 @@ func main() {
 }
 
 func updateCPULoad(ctx context.Context, interval time.Duration) error {
-	percentages, err := cpu.Percent(time.Second, false)
-	if err != nil {
-		return err
-	}
-
-	cpuLoadLock.Lock()
-	lastCPULoad = percentages[0]
-	cpuLoadLock.Unlock()
-	slog.Info("cpu", "load", lastCPULoad)
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			percentages, err = cpu.Percent(interval, false)
+			percentages, err := cpu.Percent(interval, true)
 			if err != nil {
 				return err
 			}
 
 			cpuLoadLock.Lock()
-			lastCPULoad = percentages[0]
+			lastCPULoad = 0.0
+			for _, percentage := range percentages {
+				lastCPULoad += percentage
+			}
 			cpuLoadLock.Unlock()
-			slog.Info("cpu", "load", lastCPULoad)
+
+			slog.Info("cpu", "load", strconv.FormatFloat(lastCPULoad, 'f', 2, 64))
 		case <-ctx.Done():
 			slog.Info("cpu load update stopped")
 			return nil
@@ -152,7 +147,7 @@ func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 			}
 			ramLoadLock.Unlock()
 
-			slog.Info("ram", "load", memoryUsage)
+			//slog.Info("ram", "load", memoryUsage)
 		case <-ctx.Done():
 			slog.Info("memory utilization update stopped")
 			return nil
