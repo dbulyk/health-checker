@@ -153,7 +153,7 @@ func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 			}
 			ramLoadLock.Unlock()
 
-			//slog.Info("ram", "load", memoryUsage)
+			slog.Info("ram", "load", memoryUsage)
 		case <-ctx.Done():
 			slog.Info("memory utilization update stopped")
 			return nil
