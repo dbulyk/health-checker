@@ -7,9 +7,9 @@ import (
 	"health-checker/config"
 	"log"
 	"log/slog"
+	"math"
 	"net/http"
 	"os/signal"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -87,7 +87,6 @@ func main() {
 func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	var (
 		percentages []float64
-		percentage  float64
 		err         error
 	)
 
@@ -97,19 +96,15 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	for {
 		select {
 		case <-ticker.C:
-			percentages, err = cpu.Percent(interval, true)
+			percentages, err = cpu.Percent(interval, false)
 			if err != nil {
 				return err
 			}
 
 			cpuLoadLock.Lock()
-			lastCPULoad = 0.0
-			for _, percentage = range percentages {
-				lastCPULoad += percentage
-			}
+			lastCPULoad = math.Floor(percentages[0] * 10)
+			slog.Info("cpu", "load", lastCPULoad)
 			cpuLoadLock.Unlock()
-
-			slog.Info("cpu", "load", strconv.FormatFloat(lastCPULoad, 'f', 2, 64))
 		case <-ctx.Done():
 			slog.Info("cpu load update stopped")
 			return nil
