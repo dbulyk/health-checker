@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/shirou/gopsutil/v3/cpu"
 	"health-checker/config"
 	"log"
 	"log/slog"
-	"math"
 	"net/http"
 	"os/signal"
 	"sync"
@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -63,7 +62,7 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		Handler:           mux,
 	}
-	mux.HandleFunc("/", checkCPUAndRAMLoad)
+	mux.HandleFunc("/check", checkCPUAndRAMLoad)
 	slog.Info("server initialized at", "address", address)
 
 	go func() {
@@ -73,7 +72,8 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	shutdownContext, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	slog.Info("server is shutting down. Please wait...")
+	shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownContext); err != nil {
@@ -96,15 +96,16 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 	for {
 		select {
 		case <-ticker.C:
-			percentages, err = cpu.Percent(interval, false)
+			percentages, err = cpu.PercentWithContext(ctx, interval, false)
 			if err != nil {
 				return err
 			}
 
 			cpuLoadLock.Lock()
-			lastCPULoad = math.Floor(percentages[0] * 10)
-			slog.Info("cpu", "load", lastCPULoad)
+			lastCPULoad = percentages[0]
 			cpuLoadLock.Unlock()
+
+			slog.Info("cpu load", "total", lastCPULoad)
 		case <-ctx.Done():
 			slog.Info("cpu load update stopped")
 			return nil
@@ -124,15 +125,13 @@ func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 	totalMemoryUsage += memoryUsage
 	ramLoadLock.Unlock()
 
-	slog.Info("ram", "load", memoryUsage)
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			memoryInfo, err = mem.VirtualMemory()
+			memoryInfo, err = mem.VirtualMemoryWithContext(ctx)
 			if err != nil {
 				return err
 			}
@@ -147,8 +146,6 @@ func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 				pollCount.Add(1)
 			}
 			ramLoadLock.Unlock()
-
-			slog.Info("ram", "load", memoryUsage)
 		case <-ctx.Done():
 			slog.Info("memory utilization update stopped")
 			return nil
