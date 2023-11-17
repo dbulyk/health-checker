@@ -1,7 +1,7 @@
 ## Description
 health-checker is a small application for checking the health of a service. 
 It is designed to be used in an environment where the service may be running on a different host than the 
-health checker. The health checker will poll the service for CPU and RAM utilization and if some of these things exceeds a certain threshold, 
+health checker. The health checker will poll the service for CPU and RAM utilization and if some of these things exceeds a certain threshold,
 it will return a 503 error (StatusServiceUnavailable) to the client. In other cases, it returns a 200 (StatusOK) response.
 
 
@@ -16,8 +16,8 @@ it will return a 503 error (StatusServiceUnavailable) to the client. In other ca
 Note that if both flags and environment variables are specified, environment variables have higher priority
 
 ## Usage
-Compile the application with `go build` or download it from releases and run it with `./health-checker`. Specify flags as needed. 
-The health checker will listen for requests on the specified port and address.
+Compile the application with `go build` or download it from releases and run it with `./health-checker`. Specify flags as needed.
+The service call must be on the path address:port/check
 
 ## Example
 For macOS, run `./health-checker -i 10s -u 90 -p 8080 -a localhost` or `CHECK_INTERVAL=10s THRESHOLD=90 PORT=8080 ADDRESS=localhost ./health-checker`
