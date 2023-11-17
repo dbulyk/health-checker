@@ -4,17 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shirou/gopsutil/v3/cpu"
 	"health-checker/config"
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -29,6 +31,16 @@ var (
 
 func main() {
 	cfg = config.GetCheckerCfg()
+
+	if cfg.DebugMode {
+		opts := &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}
+
+		handler := slog.NewTextHandler(os.Stdout, opts)
+		slog.SetDefault(slog.New(handler))
+		slog.Debug("debug mode enabled")
+	}
 
 	if cfg.Interval < 0 {
 		slog.Error("invalid interval, it should be greater than 0", "interval", cfg.Interval)
@@ -53,7 +65,6 @@ func main() {
 			stop()
 		}
 	}()
-
 	address := cfg.Address + ":" + cfg.Port
 
 	mux := http.NewServeMux()
@@ -97,7 +108,9 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 		select {
 		case <-ticker.C:
 			percentages, err = cpu.PercentWithContext(ctx, interval, false)
-			if err != nil {
+			if err != nil && errors.Is(err, context.Canceled) {
+				return nil
+			} else if err != nil {
 				return err
 			}
 
@@ -105,9 +118,9 @@ func updateCPULoad(ctx context.Context, interval time.Duration) error {
 			lastCPULoad = percentages[0]
 			cpuLoadLock.Unlock()
 
-			slog.Info("cpu load", "total", lastCPULoad)
+			slog.Debug("cpu load", "load", strconv.FormatFloat(lastCPULoad, 'f', 2, 64))
 		case <-ctx.Done():
-			slog.Info("cpu load update stopped")
+			slog.Debug("cpu load update stopped")
 			return nil
 		}
 	}
@@ -146,8 +159,9 @@ func updateMemoryLoad(ctx context.Context, interval time.Duration) error {
 				pollCount.Add(1)
 			}
 			ramLoadLock.Unlock()
+			slog.Debug("memory utilization", "utilization", strconv.FormatFloat(memoryUsage, 'f', 2, 64))
 		case <-ctx.Done():
-			slog.Info("memory utilization update stopped")
+			slog.Debug("memory utilization update stopped")
 			return nil
 		}
 	}
@@ -162,14 +176,21 @@ func checkCPUAndRAMLoad(w http.ResponseWriter, _ *http.Request) {
 	memoryUsage := totalMemoryUsage / float64(pollCount.Load())
 	ramLoadLock.Unlock()
 
-	slog.Info("utilization", "cpu", cpuLoad, "memory", memoryUsage)
+	slog.Debug("utilization", "cpu", strconv.FormatFloat(cpuLoad, 'f', 2, 64),
+		"memory", strconv.FormatFloat(totalMemoryUsage, 'f', 2, 64))
 
 	if cpuLoad > cfg.Threshold || memoryUsage > cfg.Threshold {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
+		_, err := fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
+		if err != nil {
+			slog.Error("error writing response", "error", err)
+		}
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
+	_, err := fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuLoad, memoryUsage)
+	if err != nil {
+		slog.Error("error writing response", "error", err)
+	}
 }
