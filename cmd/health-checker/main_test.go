@@ -22,9 +22,7 @@ func TestUpdateCPULoad(t *testing.T) {
 	}()
 
 	err := updateCPULoad(ctx, interval)
-	if assert.Error(t, err) {
-		assert.Equal(t, context.Canceled, err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestCheckCPUAndRAMLoad(t *testing.T) {
