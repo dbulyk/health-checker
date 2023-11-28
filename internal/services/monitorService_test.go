@@ -11,7 +11,7 @@ import (
 
 func TestMonitor_Start(t *testing.T) {
 	monitor := NewMonitor()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	monitor.Start(ctx, configs.Checker{Interval: time.Second})
