@@ -1,4 +1,4 @@
-package config
+package configs
 
 import (
 	"flag"
@@ -29,7 +29,7 @@ func GetCheckerCfg() Checker {
 
 	err := env.Parse(&checker)
 	if err != nil {
-		slog.Error("config parsing error: %v", err)
+		slog.Error("configs parsing error: %v", err)
 		panic(err)
 	}
 	return checker
