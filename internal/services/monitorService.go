@@ -3,12 +3,11 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/yusufpapurcu/wmi"
 	"health-checker/internal/configs"
 	"health-checker/internal/models"
+	"log"
 	"log/slog"
-	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -18,11 +17,6 @@ type Monitor struct {
 	ramUtilization models.Utilization
 	PollCount      atomic.Int64
 }
-
-var (
-	startPoint []models.Win32PerfFormattedDataPerfOsProcessor
-	endPoint   []models.Win32PerfFormattedDataPerfOsProcessor
-)
 
 func NewMonitor() *Monitor {
 	return &Monitor{}
@@ -38,17 +32,22 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 		}
 	}()
 
-	//go func() {
-	//	slog.Debug("ram load started")
-	//
-	//	err := m.GetRAMUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("ram load error", "error", err)
-	//	}
-	//}()
+	go func() {
+		slog.Debug("начат мониторинг загрузки памяти")
+
+		err := m.GetRAMUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("ошибка получения данных памяти", "error", err)
+		}
+	}()
 }
 
 func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration) error {
+	var (
+		startPoint []models.Win32PerfFormattedDataPerfOsProcessor
+		endPoint   []models.Win32PerfFormattedDataPerfOsProcessor
+	)
+
 	const query = "SELECT * FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
 
 	ticker := time.NewTicker(interval)
@@ -102,17 +101,8 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 }
 
 func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration) error {
-	memoryInfo, err := mem.VirtualMemory()
-	if err != nil {
-		return err
-	}
-	memoryUsage := memoryInfo.UsedPercent
-
-	m.PollCount.Store(1)
-
-	m.ramUtilization.Lock()
-	m.ramUtilization.Percentages = memoryUsage
-	m.ramUtilization.Unlock()
+	const query = "SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"
+	var memoryPoint []models.Win32PerfFormattedDataPerfOsMemory
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -120,11 +110,16 @@ func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration)
 	for {
 		select {
 		case <-ticker.C:
-			memoryInfo, err = mem.VirtualMemoryWithContext(ctx)
+			err := wmi.Query(query, &memoryPoint)
 			if err != nil {
-				return err
+				log.Fatal(err)
 			}
-			memoryUsage = memoryInfo.UsedPercent
+
+			if len(memoryPoint) == 0 {
+				return errors.New("нет данных о памяти")
+			}
+
+			memoryUsage := float64(memoryPoint[0].PercentCommittedBytesInUse)
 
 			m.ramUtilization.Lock()
 			if m.PollCount.Load() > 5 {
@@ -134,10 +129,10 @@ func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration)
 				m.ramUtilization.Percentages += memoryUsage
 				m.PollCount.Add(1)
 			}
+			slog.Debug("", "Загрузка памяти", m.ramUtilization.Percentages/float64(m.PollCount.Load()))
 			m.ramUtilization.Unlock()
-			slog.Debug("memory utilization", "utilization", strconv.FormatFloat(memoryUsage, 'f', 2, 64))
 		case <-ctx.Done():
-			slog.Debug("memory utilization update stopped")
+			slog.Debug("мониторинг загрузки памяти остановлен")
 			return nil
 		}
 	}

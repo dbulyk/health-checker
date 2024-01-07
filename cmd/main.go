@@ -11,11 +11,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 )
 
 func main() {
+	if runtime.GOOS != "windows" {
+		slog.Info("поддерживается только Windows")
+		os.Exit(1)
+	}
+
 	cfg := configs.GetCheckerCfg()
 
 	if cfg.DebugMode {
