@@ -11,11 +11,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 )
 
 func main() {
+	if runtime.GOOS != "windows" {
+		slog.Info("поддерживается только Windows")
+		os.Exit(1)
+	}
+
 	cfg := configs.GetCheckerCfg()
 
 	if cfg.DebugMode {
@@ -25,11 +31,11 @@ func main() {
 
 		handler := slog.NewTextHandler(os.Stdout, opts)
 		slog.SetDefault(slog.New(handler))
-		slog.Debug("debug mode enabled")
+		slog.Debug("сервер запущен в режиме отладки")
 	}
 
 	if cfg.Interval < 0 {
-		slog.Error("invalid interval, it should be greater than 0", "interval", cfg.Interval)
+		slog.Error("неккоректный интервал, укажите >= 0", "интервал", cfg.Interval)
 		return
 	}
 
@@ -48,23 +54,23 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		Handler:           mux,
 	}
-	slog.Info("server initialized at", "address", address)
+	slog.Info("сервер запущен", "адрес", address)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server error: %v", err)
+			log.Fatalf("ошибка: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	slog.Info("server is shutting down. Please wait...")
+	slog.Info("сервер останавливается. Пожалуйста, подождите...")
 	shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownContext); err != nil {
-		slog.Error("server shutdown error,", "error", err)
+		slog.Error("ошибка остановки сервера,", "ошибка", err)
 	}
 
 	<-shutdownContext.Done()
-	slog.Info("server stopped")
+	slog.Info("сервер остановлен")
 }

@@ -29,7 +29,7 @@ func GetCheckerCfg() Checker {
 
 	err := env.Parse(&checker)
 	if err != nil {
-		slog.Error("configs parsing error: %v", err)
+		slog.Error("ошибка парсинга конфига: %v", err)
 		panic(err)
 	}
 	return checker
