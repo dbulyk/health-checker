@@ -20,8 +20,8 @@ type Monitor struct {
 }
 
 var (
-	dst1 []models.Win32PerfFormattedDataPerfOsProcessor
-	dst2 []models.Win32PerfFormattedDataPerfOsProcessor
+	startPoint []models.Win32PerfFormattedDataPerfOsProcessor
+	endPoint   []models.Win32PerfFormattedDataPerfOsProcessor
 )
 
 func NewMonitor() *Monitor {
@@ -57,39 +57,41 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 	for {
 		select {
 		case <-ticker.C:
-			err := wmi.Query(query, &dst1)
+			err := wmi.Query(query, &startPoint)
 			if err != nil {
 				return err
 			}
 
-			if len(dst1) == 0 {
+			if len(startPoint) == 0 {
 				return errors.New("нет данных о процессоре")
 			}
 
-			N1 := dst1[0].PercentProcessorTime
-			D1 := dst1[0].TimeStamp_Sys100NS
+			startPointProcTime := startPoint[0].PercentProcessorTime
+			startPointTS := startPoint[0].TimeStamp_Sys100NS
 
 			time.Sleep(interval)
 
-			err = wmi.Query(query, &dst2)
+			err = wmi.Query(query, &endPoint)
 			if err != nil {
 				return err
 			}
 
-			if len(dst2) == 0 {
+			if len(endPoint) == 0 {
 				return errors.New("нет данных о процессоре")
 			}
 
-			N2 := dst2[0].PercentProcessorTime
-			D2 := dst2[0].TimeStamp_Sys100NS
+			endPointProcTime := endPoint[0].PercentProcessorTime
+			endPointTS := endPoint[0].TimeStamp_Sys100NS
 
-			n2s := float64(N2 - N1)
-			d2s := float64(D2 - D1)
-			nd2s := (1.0 - n2s/d2s) * 100
+			/*
+				механизм расчета загрузки процессора
+				основан на https://learn.microsoft.com/en-us/windows/win32/wmisdk/monitoring-performance-data#using-raw-performance-data-classes
+			*/
+			cpuUtil := (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
 
 			m.cpuUtilization.Lock()
-			m.cpuUtilization.Percentages = nd2s
-			slog.Debug("", "Загрузка процессора", nd2s)
+			m.cpuUtilization.Percentages = cpuUtil
+			slog.Debug("", "Загрузка процессора", cpuUtil)
 			m.cpuUtilization.Unlock()
 
 		case <-ctx.Done():
