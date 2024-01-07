@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/yusufpapurcu/wmi"
 	"health-checker/internal/configs"
 	"health-checker/internal/models"
 	"log/slog"
@@ -19,51 +19,81 @@ type Monitor struct {
 	PollCount      atomic.Int64
 }
 
+var (
+	dst1 []models.Win32PerfFormattedDataPerfOsProcessor
+	dst2 []models.Win32PerfFormattedDataPerfOsProcessor
+)
+
 func NewMonitor() *Monitor {
 	return &Monitor{}
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 	go func() {
-		slog.Debug("cpu load started")
+		slog.Debug("начат мониторинг загрузки процессора")
 
 		err := m.GetCPUUtilization(ctx, cfg.Interval)
 		if err != nil {
-			slog.Error("cpu load error", "error", err)
+			slog.Error("ошибка получения данных процессора", "ошибка", err)
 		}
 	}()
 
-	go func() {
-		slog.Debug("ram load started")
-
-		err := m.GetRAMUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("ram load error", "error", err)
-		}
-	}()
+	//go func() {
+	//	slog.Debug("ram load started")
+	//
+	//	err := m.GetRAMUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("ram load error", "error", err)
+	//	}
+	//}()
 }
 
 func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration) error {
+	const query = "SELECT * FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			percentage, err := cpu.PercentWithContext(ctx, interval, false)
-			if err != nil && errors.Is(err, context.Canceled) {
-				return nil
-			} else if err != nil {
+			err := wmi.Query(query, &dst1)
+			if err != nil {
 				return err
 			}
 
+			if len(dst1) == 0 {
+				return errors.New("нет данных о процессоре")
+			}
+
+			N1 := dst1[0].PercentProcessorTime
+			D1 := dst1[0].TimeStamp_Sys100NS
+
+			time.Sleep(interval)
+
+			err = wmi.Query(query, &dst2)
+			if err != nil {
+				return err
+			}
+
+			if len(dst2) == 0 {
+				return errors.New("нет данных о процессоре")
+			}
+
+			N2 := dst2[0].PercentProcessorTime
+			D2 := dst2[0].TimeStamp_Sys100NS
+
+			n2s := float64(N2 - N1)
+			d2s := float64(D2 - D1)
+			nd2s := (1.0 - n2s/d2s) * 100
+
 			m.cpuUtilization.Lock()
-			m.cpuUtilization.Percentages = percentage[0]
+			m.cpuUtilization.Percentages = nd2s
+			slog.Debug("", "Загрузка процессора", nd2s)
 			m.cpuUtilization.Unlock()
 
-			slog.Debug("cpu load", "load", strconv.FormatFloat(m.cpuUtilization.Percentages, 'f', 2, 64))
 		case <-ctx.Done():
-			slog.Debug("cpu load update stopped")
+			slog.Debug("мониторинг загрузки процессора остановлен")
 			return nil
 		}
 	}
