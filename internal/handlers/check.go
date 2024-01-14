@@ -31,9 +31,9 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-
-	_, err := fmt.Fprintf(w, "утилизация процессора: %.2f%%\nутилизация памяти: %.2f%%", cpuUsage, memoryUsage)
+	_, err := fmt.Fprintf(w, "Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%", cpuUsage, memoryUsage)
 	if err != nil {
 		slog.Error("ошибка записи ответа", "ошибка", err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

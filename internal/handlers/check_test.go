@@ -30,8 +30,8 @@ func TestCheck_UtilizationUnderThreshold(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "CPU load")
-	assert.Contains(t, rr.Body.String(), "RAM load")
+	assert.Contains(t, rr.Body.String(), "Утилизация процессора")
+	assert.Contains(t, rr.Body.String(), "Утилизация памяти")
 }
 
 func TestCheck_UtilizationOverThreshold(t *testing.T) {
@@ -52,6 +52,6 @@ func TestCheck_UtilizationOverThreshold(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
-	assert.Contains(t, rr.Body.String(), "CPU load")
-	assert.Contains(t, rr.Body.String(), "RAM load")
+	assert.Contains(t, rr.Body.String(), "Утилизация процессора")
+	assert.Contains(t, rr.Body.String(), "Утилизация памяти")
 }
