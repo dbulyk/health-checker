@@ -24,7 +24,7 @@ func GetCheckerCfg() Checker {
 	flag.Float64Var(&checker.Threshold, "u", 80, "threshold")
 	flag.StringVar(&checker.Address, "a", "localhost", "address")
 	flag.StringVar(&checker.Port, "p", "8080", "port")
-	flag.BoolVar(&checker.DebugMode, "d", true, "debug mode")
+	flag.BoolVar(&checker.DebugMode, "d", false, "debug mode")
 	flag.Parse()
 
 	err := env.Parse(&checker)

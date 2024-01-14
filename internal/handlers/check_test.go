@@ -17,7 +17,7 @@ func TestCheck_UtilizationUnderThreshold(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	c := configs.Checker{Interval: time.Second, Threshold: 80.0}
+	c := configs.Checker{Interval: time.Second, Threshold: 80.0, DebugMode: true}
 	m.Start(ctx, c)
 
 	time.Sleep(time.Second * 3)
@@ -39,7 +39,7 @@ func TestCheck_UtilizationOverThreshold(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	c := configs.Checker{Interval: time.Second, Threshold: 0.1}
+	c := configs.Checker{Interval: time.Second, Threshold: 0.1, DebugMode: true}
 	m.Start(ctx, c)
 
 	time.Sleep(time.Second * 3)
