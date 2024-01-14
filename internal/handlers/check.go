@@ -26,7 +26,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	cpuUsage := monitor.GetCPUUtilizationValue()
 	memoryUsage := monitor.GetRAMUtilizationValue()
 
-	slog.Info("Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
+	fmt.Printf("Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
 
 	if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
 		w.WriteHeader(http.StatusServiceUnavailable)
