@@ -92,7 +92,6 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 			m.cpuUtilization.Percentages = cpuUtil
 			slog.Debug("", "Загрузка процессора", cpuUtil)
 			m.cpuUtilization.Unlock()
-
 		case <-ctx.Done():
 			slog.Debug("мониторинг загрузки процессора остановлен")
 			return nil
@@ -120,9 +119,10 @@ func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration)
 			}
 
 			memoryUsage := float64(memoryPoint[0].PercentCommittedBytesInUse)
+			limitPollCount := int64(5)
 
 			m.ramUtilization.Lock()
-			if m.PollCount.Load() > 5 {
+			if m.PollCount.Load() > limitPollCount {
 				m.ramUtilization.Percentages = memoryUsage
 				m.PollCount.Swap(1)
 			} else {

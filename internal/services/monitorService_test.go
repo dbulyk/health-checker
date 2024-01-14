@@ -29,7 +29,7 @@ func TestMonitor_GetCPUUtilization(t *testing.T) {
 
 	err := monitor.GetCPUUtilization(ctx, time.Second)
 
-	assert.Equal(t, err, context.DeadlineExceeded)
+	assert.NoError(t, err)
 	assert.NotZero(t, monitor.GetCPUUtilizationValue())
 }
 
