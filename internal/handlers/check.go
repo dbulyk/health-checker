@@ -6,7 +6,6 @@ import (
 	"health-checker/internal/services"
 	"log/slog"
 	"net/http"
-	"strconv"
 )
 
 var (
@@ -27,21 +26,18 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	cpuUsage := monitor.GetCPUUtilizationValue()
 	memoryUsage := monitor.GetRAMUtilizationValue()
 
-	slog.Debug("utilization", "cpu", strconv.FormatFloat(cpuUsage, 'f', 2, 64),
-		"memory", strconv.FormatFloat(memoryUsage, 'f', 2, 64))
+	fmt.Printf("Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
 
 	if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuUsage, memoryUsage)
-		if err != nil {
-			slog.Error("error writing response", "error", err)
-		}
-		return
+	} else {
+		w.WriteHeader(http.StatusOK)
 	}
 
-	w.WriteHeader(http.StatusOK)
-	_, err := fmt.Fprintf(w, "CPU load: %.2f%%\nRAM load: %.2f%%", cpuUsage, memoryUsage)
+	_, err := fmt.Fprintf(w, "Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
 	if err != nil {
-		slog.Error("error writing response", "error", err)
+		slog.Error("ошибка записи ответа", "ошибка", err)
+		http.Error(w, "ошибка записи ответа", http.StatusInternalServerError)
+		return
 	}
 }
