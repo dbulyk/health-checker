@@ -20,7 +20,7 @@ type Checker struct {
 var checker Checker
 
 func GetCheckerCfg() Checker {
-	flag.DurationVar(&checker.Interval, "i", 60*time.Second, "check interval")
+	flag.DurationVar(&checker.Interval, "i", 10*time.Second, "check interval")
 	flag.Float64Var(&checker.Threshold, "u", 80, "threshold")
 	flag.StringVar(&checker.Address, "a", "localhost", "address")
 	flag.StringVar(&checker.Port, "p", "8080", "port")
