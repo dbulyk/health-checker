@@ -24,20 +24,18 @@ func NewRouter(m *services.Monitor, c configs.Checker) *http.ServeMux {
 
 func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	cpuUsage := monitor.GetCPUUtilizationValue()
-	memoryUsage := monitor.GetRAMUtilizationValue()
+	//memoryUsage := monitor.GetRAMUtilizationValue()
 
-	fmt.Printf("Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
+	//if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
+	//	w.WriteHeader(http.StatusServiceUnavailable)
+	//} else {
+	//	w.WriteHeader(http.StatusOK)
+	//}
 
-	if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	} else {
-		w.WriteHeader(http.StatusOK)
-	}
-
-	_, err := fmt.Fprintf(w, "Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
+	_, err := fmt.Fprintf(w, "cpu utilization: %.2f%%\n", cpuUsage)
 	if err != nil {
-		slog.Error("ошибка записи ответа", "ошибка", err)
-		http.Error(w, "ошибка записи ответа", http.StatusInternalServerError)
+		slog.Error("response recording error", "error", err)
+		http.Error(w, "response recording error", http.StatusInternalServerError)
 		return
 	}
 }
