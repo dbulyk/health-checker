@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"health-checker/internal/configs"
 	"health-checker/internal/services"
 	"log/slog"
@@ -10,12 +9,10 @@ import (
 
 var (
 	monitor *services.Monitor
-	cfg     configs.Checker
 )
 
 func NewRouter(m *services.Monitor, c configs.Checker) *http.ServeMux {
 	monitor = m
-	cfg = c
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/check", checkUtilization)
@@ -24,6 +21,12 @@ func NewRouter(m *services.Monitor, c configs.Checker) *http.ServeMux {
 
 func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	cpuUsage := monitor.GetCPUUtilizationValue()
+	if cpuUsage.HighLoad {
+		slog.Debug("cpu utilization is high", "value", cpuUsage.Value)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
 	//memoryUsage := monitor.GetRAMUtilizationValue()
 
 	//if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
@@ -32,10 +35,10 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	//	w.WriteHeader(http.StatusOK)
 	//}
 
-	_, err := fmt.Fprintf(w, "cpu utilization: %.2f%%\n", cpuUsage)
-	if err != nil {
-		slog.Error("response recording error", "error", err)
-		http.Error(w, "response recording error", http.StatusInternalServerError)
-		return
-	}
+	//_, err := fmt.Fprintf(w, "cpu utilization: %.2f%%\n", cpuUsage)
+	//if err != nil {
+	//	slog.Error("response recording error", "error", err)
+	//	http.Error(w, "response recording error", http.StatusInternalServerError)
+	//	return
+	//}
 }

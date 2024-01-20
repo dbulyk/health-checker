@@ -11,12 +11,12 @@ import (
 
 func TestMonitor_Start(t *testing.T) {
 	monitor := NewMonitor()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	monitor.Start(ctx, configs.Checker{Interval: time.Second})
+	monitor.Start(ctx, configs.Checker{Interval: time.Microsecond})
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Millisecond * 5)
 
 	assert.NotNil(t, monitor.GetCPUUtilizationValue())
 	//assert.NotZero(t, monitor.GetRAMUtilizationValue())
@@ -24,10 +24,10 @@ func TestMonitor_Start(t *testing.T) {
 
 func TestMonitor_GetCPUUtilization(t *testing.T) {
 	monitor := NewMonitor()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	err := monitor.GetCPUUtilization(ctx, time.Second)
+	err := monitor.GetCPUUtilization(ctx, time.Millisecond)
 
 	assert.NoError(t, err)
 	assert.NotZero(t, monitor.GetCPUUtilizationValue())

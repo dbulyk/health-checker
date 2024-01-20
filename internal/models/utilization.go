@@ -4,8 +4,8 @@ import "sync"
 
 type Utilization struct {
 	sync.Mutex
-	Percentages float64
-	HighLoad    bool
+	Value    float64
+	HighLoad bool
 }
 
 type Processor struct {

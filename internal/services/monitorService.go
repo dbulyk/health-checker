@@ -53,7 +53,6 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 	defer ticker.Stop()
 
 	highLoadCounter := 0
-
 	for {
 		select {
 		case <-ticker.C:
@@ -95,12 +94,12 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 			}
 
 			m.cpuUtilization.Lock()
-			m.cpuUtilization.Percentages = cpuUtil
-			if highLoadCounter > 10 {
+			if highLoadCounter > 10 || cpuUtil >= 90 {
 				m.cpuUtilization.HighLoad = true
 			} else {
 				m.cpuUtilization.HighLoad = false
 			}
+			m.cpuUtilization.Value = cpuUtil
 
 			slog.Debug("", "CPU load", cpuUtil)
 			m.cpuUtilization.Unlock()
@@ -135,13 +134,13 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 //
 //			m.ramUtilization.Lock()
 //			if m.PollCount.Load() > limitPollCount {
-//				m.ramUtilization.Percentages = memoryUsage
+//				m.ramUtilization.Value = memoryUsage
 //				m.PollCount.Swap(1)
 //			} else {
-//				m.ramUtilization.Percentages += memoryUsage
+//				m.ramUtilization.Value += memoryUsage
 //				m.PollCount.Add(1)
 //			}
-//			slog.Debug("", "Загрузка памяти", m.ramUtilization.Percentages/float64(m.PollCount.Load()))
+//			slog.Debug("", "Загрузка памяти", m.ramUtilization.Value/float64(m.PollCount.Load()))
 //			m.ramUtilization.Unlock()
 //		case <-ctx.Done():
 //			slog.Debug("мониторинг загрузки памяти остановлен")
@@ -150,16 +149,16 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 //	}
 //}
 
-func (m *Monitor) GetCPUUtilizationValue() float64 {
+func (m *Monitor) GetCPUUtilizationValue() *models.Utilization {
 	m.cpuUtilization.Lock()
 	defer m.cpuUtilization.Unlock()
 
-	return m.cpuUtilization.Percentages
+	return &m.cpuUtilization
 }
 
 //func (m *Monitor) GetRAMUtilizationValue() float64 {
 //	m.ramUtilization.Lock()
 //	defer m.ramUtilization.Unlock()
 //
-//	return m.ramUtilization.Percentages / float64(m.PollCount.Load())
+//	return m.ramUtilization.Value / float64(m.PollCount.Load())
 //}
