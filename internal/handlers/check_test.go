@@ -25,7 +25,7 @@ func TestCheck_UtilisationNormalZone(t *testing.T) {
 	router := NewRouter(m)
 
 	q := m.GetCPUUtilisationValue()
-	q.LoadZone = "normal"
+	q.LoadZone = services.NormalZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
 
@@ -47,7 +47,7 @@ func TestCheck_UtilisationWarningZone(t *testing.T) {
 	router := NewRouter(m)
 
 	q := m.GetCPUUtilisationValue()
-	q.LoadZone = "warning"
+	q.LoadZone = services.WarningZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
 
@@ -70,7 +70,7 @@ func TestCheck_UtilisationDangerZone(t *testing.T) {
 	router := NewRouter(m)
 
 	q := m.GetCPUUtilisationValue()
-	q.LoadZone = "danger"
+	q.LoadZone = services.DangerZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
 

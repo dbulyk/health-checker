@@ -22,7 +22,7 @@ func TestMonitor_Start(t *testing.T) {
 	//assert.NotZero(t, monitor.GetRAMutilisationValue())
 }
 
-func TestMonitor_GetCPUutilisation(t *testing.T) {
+func TestMonitor_GetCPUUtilisation(t *testing.T) {
 	monitor := NewMonitor()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

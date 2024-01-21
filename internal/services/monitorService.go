@@ -49,8 +49,13 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 
 func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration) error {
 	var (
-		startPoint []models.Processor
-		endPoint   []models.Processor
+		startPoint         []models.Processor
+		endPoint           []models.Processor
+		startPointProcTime uint64
+		startPointTS       uint64
+		endPointProcTime   uint64
+		endPointTS         uint64
+		highLoadCounter    int
 	)
 
 	const query = "SELECT * FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
@@ -58,7 +63,6 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	highLoadCounter := 0
 	for {
 		select {
 		case <-ticker.C:
@@ -71,8 +75,8 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 				return errors.New("no processor data")
 			}
 
-			startPointProcTime := startPoint[0].PercentProcessorTime
-			startPointTS := startPoint[0].TimeStamp_Sys100NS
+			startPointProcTime = startPoint[0].PercentProcessorTime
+			startPointTS = startPoint[0].TimeStamp_Sys100NS
 
 			time.Sleep(interval)
 
@@ -85,8 +89,8 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 				return errors.New("no processor data")
 			}
 
-			endPointProcTime := endPoint[0].PercentProcessorTime
-			endPointTS := endPoint[0].TimeStamp_Sys100NS
+			endPointProcTime = endPoint[0].PercentProcessorTime
+			endPointTS = endPoint[0].TimeStamp_Sys100NS
 
 			/*
 				CPU utilisation calculation mechanism
