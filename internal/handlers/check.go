@@ -14,40 +14,40 @@ func NewRouter(m *services.Monitor) *http.ServeMux {
 	monitor = m
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/check", checkUtilisation)
+	mux.HandleFunc("/check", checkutilization)
 	return mux
 }
 
-func checkUtilisation(w http.ResponseWriter, _ *http.Request) {
-	cpuUsage := monitor.GetCPUUtilisationValue()
+func checkutilization(w http.ResponseWriter, _ *http.Request) {
+	cpuUsage := monitor.GetCPUUtilizationValue()
 
 	switch cpuUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("CPU utilisation exceeds 75%."))
+		_, err := w.Write([]byte("CPU utilization exceeds 75%."))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("CPU utilisation exceeds 90%."))
+		_, err := w.Write([]byte("CPU utilization exceeds 90%."))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
 		}
 	}
 
-	memUsage := monitor.GetRAMUtilisationValue()
+	memUsage := monitor.GetRAMUtilizationValue()
 	switch memUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("RAM utilisation exceeds 75%."))
+		_, err := w.Write([]byte("RAM utilization exceeds 75%."))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("RAM utilisation exceeds 90%."))
+		_, err := w.Write([]byte("RAM utilization exceeds 90%."))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return

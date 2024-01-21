@@ -26,13 +26,15 @@ type mem struct {
 	AvailableMBytes uint64
 }
 
-type memInfo struct {
-	Capacity uint64
+type net struct {
+	CurrentBandwidth uint32
+	BytesTotalPerSec uint64
 }
 
 type Monitor struct {
-	cpuUtilisation models.Utilisation
-	ramUtilisation models.Utilisation
+	cpuUtilization models.Utilization
+	ramUtilization models.Utilization
+	netUtilization models.Utilization
 	PollCount      atomic.Int64
 }
 
@@ -41,26 +43,35 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
+	//go func() {
+	//	slog.Debug("monitoring of the processor load is started")
+	//
+	//	err := m.GetCPUUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("processor data retrieval error", "error", err)
+	//	}
+	//}()
+	//
+	//go func() {
+	//	slog.Debug("RAM load monitoring started")
+	//
+	//	err := m.GetRAMUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("RAM data retrieval error", "error", err)
+	//	}
+	//}()
+
 	go func() {
-		slog.Debug("monitoring of the processor load is started")
+		slog.Debug("network load monitoring started")
 
-		err := m.GetCPUUtilisation(ctx, cfg.Interval)
+		err := m.getNetUtilization(ctx, cfg.Interval)
 		if err != nil {
-			slog.Error("processor data retrieval error", "error", err)
-		}
-	}()
-
-	go func() {
-		slog.Debug("RAM load monitoring started")
-
-		err := m.GetRAMUtilisation(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("RAM data retrieval error", "error", err)
+			slog.Error("network data retrieval error", "error", err)
 		}
 	}()
 }
 
-func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration) error {
 	var (
 		startPoint         []proc
 		endPoint           []proc
@@ -106,7 +117,7 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 			endPointTS = endPoint[0].TimeStamp_Sys100NS
 
 			/*
-				CPU utilisation calculation mechanism
+				CPU utilization calculation mechanism
 				is based on https://learn.microsoft.com/en-us/windows/win32/wmisdk/monitoring-performance-data#using-raw-performance-data-classes
 			*/
 			cpuUtil := (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
@@ -116,20 +127,20 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 				highLoadCounter--
 			}
 
-			m.cpuUtilisation.Lock()
+			m.cpuUtilization.Lock()
 
 			if highLoadCounter > 10 || cpuUtil >= 90 {
-				m.cpuUtilisation.LoadZone = DangerZone
+				m.cpuUtilization.LoadZone = DangerZone
 			} else if highLoadCounter > 0 {
-				m.cpuUtilisation.LoadZone = WarningZone
+				m.cpuUtilization.LoadZone = WarningZone
 			} else {
-				m.cpuUtilisation.LoadZone = NormalZone
+				m.cpuUtilization.LoadZone = NormalZone
 			}
 
-			m.cpuUtilisation.Value = cpuUtil
+			m.cpuUtilization.Value = cpuUtil
 
 			slog.Debug("", "CPU load", cpuUtil)
-			m.cpuUtilisation.Unlock()
+			m.cpuUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("CPU load monitoring is stopped")
 			return nil
@@ -137,7 +148,11 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 	}
 }
 
-func (m *Monitor) GetRAMUtilisation(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration) error {
+	type memInfo struct {
+		Capacity uint64
+	}
+
 	var (
 		memI            []memInfo
 		capacity        uint64
@@ -186,16 +201,16 @@ func (m *Monitor) GetRAMUtilisation(ctx context.Context, interval time.Duration)
 				highLoadCounter--
 			}
 
-			m.ramUtilisation.Lock()
+			m.ramUtilization.Lock()
 			if highLoadCounter > 10 || availableMemory <= 10 {
-				m.ramUtilisation.LoadZone = DangerZone
+				m.ramUtilization.LoadZone = DangerZone
 			} else if highLoadCounter > 0 {
-				m.ramUtilisation.LoadZone = WarningZone
+				m.ramUtilization.LoadZone = WarningZone
 			} else {
-				m.ramUtilisation.LoadZone = NormalZone
+				m.ramUtilization.LoadZone = NormalZone
 			}
-			m.ramUtilisation.Value = availableMemory
-			m.ramUtilisation.Unlock()
+			m.ramUtilization.Value = availableMemory
+			m.ramUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("RAM load monitoring is stopped")
 			return nil
@@ -203,16 +218,42 @@ func (m *Monitor) GetRAMUtilisation(ctx context.Context, interval time.Duration)
 	}
 }
 
-func (m *Monitor) GetCPUUtilisationValue() *models.Utilisation {
-	m.cpuUtilisation.Lock()
-	defer m.cpuUtilisation.Unlock()
+func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration) error {
+	var netInfo []net
+	query := "SELECT * FROM Win32_PerfFormattedData_Tcpip_NetworkInterface "
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
-	return &m.cpuUtilisation
+	for {
+		select {
+		case <-ticker.C:
+			err := wmi.Query(query, &netInfo)
+			if err != nil {
+				return err
+			}
+			if len(netInfo) == 0 {
+				return errors.New("no network data")
+			}
+
+			out := float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 1000
+			slog.Debug("", "network utilization", out)
+
+		case <-ctx.Done():
+			slog.Debug("network load monitoring is stopped")
+			return nil
+		}
+	}
+
 }
 
-func (m *Monitor) GetRAMUtilisationValue() *models.Utilisation {
-	m.ramUtilisation.Lock()
-	defer m.ramUtilisation.Unlock()
+func (m *Monitor) GetCPUUtilizationValue() *models.Utilization {
+	return &m.cpuUtilization
+}
 
-	return &m.ramUtilisation
+func (m *Monitor) GetRAMUtilizationValue() *models.Utilization {
+	return &m.ramUtilization
+}
+
+func (m *Monitor) GetNetUtilizationValue() *models.Utilization {
+	return &m.netUtilization
 }

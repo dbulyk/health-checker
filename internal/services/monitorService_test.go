@@ -18,6 +18,12 @@ func TestMonitor_Start(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 5)
 
-	assert.NotNil(t, monitor.GetCPUUtilisationValue())
-	assert.NotZero(t, monitor.GetRAMUtilisationValue())
+	assert.NotNil(t, monitor.GetCPUUtilizationValue())
+	assert.NotZero(t, monitor.GetRAMUtilizationValue())
+
+	assert.NotNil(t, monitor.GetRAMUtilizationValue())
+	assert.NotZero(t, monitor.GetRAMUtilizationValue())
+
+	assert.NotNil(t, monitor.GetNetUtilizationValue())
+	assert.NotZero(t, monitor.GetNetUtilizationValue())
 }
