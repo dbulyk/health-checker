@@ -2,10 +2,10 @@ package models
 
 import "sync"
 
-type Utilization struct {
+type Utilisation struct {
 	sync.Mutex
 	Value    float64
-	HighLoad bool
+	LoadZone string
 }
 
 type Processor struct {

@@ -11,9 +11,15 @@ import (
 	"time"
 )
 
+const (
+	NormalZone  = "normal"
+	WarningZone = "warning"
+	DangerZone  = "danger"
+)
+
 type Monitor struct {
-	cpuUtilization models.Utilization
-	//ramUtilization models.Utilization
+	cpuUtilisation models.Utilisation
+	//ramutilisation models.utilisation
 	PollCount atomic.Int64
 }
 
@@ -25,7 +31,7 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 	go func() {
 		slog.Debug("monitoring of the processor load is started")
 
-		err := m.GetCPUUtilization(ctx, cfg.Interval)
+		err := m.GetCPUUtilisation(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("processor data retrieval error", "error", err)
 		}
@@ -34,14 +40,14 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 	//go func() {
 	//	slog.Debug("начат мониторинг загрузки памяти")
 	//
-	//	err := m.GetRAMUtilization(ctx, cfg.Interval)
+	//	err := m.GetRAMutilisation(ctx, cfg.Interval)
 	//	if err != nil {
 	//		slog.Error("ошибка получения данных памяти", "error", err)
 	//	}
 	//}()
 }
 
-func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration) error {
 	var (
 		startPoint []models.Processor
 		endPoint   []models.Processor
@@ -83,7 +89,7 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 			endPointTS := endPoint[0].TimeStamp_Sys100NS
 
 			/*
-				CPU utilization calculation mechanism
+				CPU utilisation calculation mechanism
 				is based on https://learn.microsoft.com/en-us/windows/win32/wmisdk/monitoring-performance-data#using-raw-performance-data-classes
 			*/
 			cpuUtil := (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
@@ -93,16 +99,20 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 				highLoadCounter--
 			}
 
-			m.cpuUtilization.Lock()
+			m.cpuUtilisation.Lock()
+
 			if highLoadCounter > 10 || cpuUtil >= 90 {
-				m.cpuUtilization.HighLoad = true
+				m.cpuUtilisation.LoadZone = DangerZone
+			} else if highLoadCounter > 0 {
+				m.cpuUtilisation.LoadZone = WarningZone
 			} else {
-				m.cpuUtilization.HighLoad = false
+				m.cpuUtilisation.LoadZone = NormalZone
 			}
-			m.cpuUtilization.Value = cpuUtil
+
+			m.cpuUtilisation.Value = cpuUtil
 
 			slog.Debug("", "CPU load", cpuUtil)
-			m.cpuUtilization.Unlock()
+			m.cpuUtilisation.Unlock()
 		case <-ctx.Done():
 			slog.Debug("CPU load monitoring is stopped")
 			return nil
@@ -110,7 +120,7 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 	}
 }
 
-//func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration) error {
+//func (m *Monitor) GetRAMutilisation(ctx context.Context, interval time.Duration) error {
 //	const query = "SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"
 //	var memoryPoint []models.Win32PerfFormattedDataPerfOsMemory
 //
@@ -132,16 +142,16 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 //			memoryUsage := float64(memoryPoint[0].PercentCommittedBytesInUse)
 //			limitPollCount := int64(5)
 //
-//			m.ramUtilization.Lock()
+//			m.ramutilisation.Lock()
 //			if m.PollCount.Load() > limitPollCount {
-//				m.ramUtilization.Value = memoryUsage
+//				m.ramutilisation.Value = memoryUsage
 //				m.PollCount.Swap(1)
 //			} else {
-//				m.ramUtilization.Value += memoryUsage
+//				m.ramutilisation.Value += memoryUsage
 //				m.PollCount.Add(1)
 //			}
-//			slog.Debug("", "Загрузка памяти", m.ramUtilization.Value/float64(m.PollCount.Load()))
-//			m.ramUtilization.Unlock()
+//			slog.Debug("", "Загрузка памяти", m.ramutilisation.Value/float64(m.PollCount.Load()))
+//			m.ramutilisation.Unlock()
 //		case <-ctx.Done():
 //			slog.Debug("мониторинг загрузки памяти остановлен")
 //			return nil
@@ -149,16 +159,16 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 //	}
 //}
 
-func (m *Monitor) GetCPUUtilizationValue() *models.Utilization {
-	m.cpuUtilization.Lock()
-	defer m.cpuUtilization.Unlock()
+func (m *Monitor) GetCPUUtilisationValue() *models.Utilisation {
+	m.cpuUtilisation.Lock()
+	defer m.cpuUtilisation.Unlock()
 
-	return &m.cpuUtilization
+	return &m.cpuUtilisation
 }
 
-//func (m *Monitor) GetRAMUtilizationValue() float64 {
-//	m.ramUtilization.Lock()
-//	defer m.ramUtilization.Unlock()
+//func (m *Monitor) GetRAMutilisationValue() float64 {
+//	m.ramutilisation.Lock()
+//	defer m.ramutilisation.Unlock()
 //
-//	return m.ramUtilization.Value / float64(m.PollCount.Load())
+//	return m.ramutilisation.Value / float64(m.PollCount.Load())
 //}

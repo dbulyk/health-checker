@@ -47,7 +47,7 @@ func main() {
 
 	address := cfg.Address + ":" + cfg.Port
 
-	mux := handlers.NewRouter(monitor, cfg)
+	mux := handlers.NewRouter(monitor)
 
 	srv := &http.Server{
 		Addr:              address,
