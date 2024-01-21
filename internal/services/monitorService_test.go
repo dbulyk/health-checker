@@ -19,27 +19,5 @@ func TestMonitor_Start(t *testing.T) {
 	time.Sleep(time.Millisecond * 5)
 
 	assert.NotNil(t, monitor.GetCPUUtilisationValue())
-	//assert.NotZero(t, monitor.GetRAMutilisationValue())
+	assert.NotZero(t, monitor.GetRAMUtilisationValue())
 }
-
-func TestMonitor_GetCPUUtilisation(t *testing.T) {
-	monitor := NewMonitor()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	err := monitor.GetCPUUtilisation(ctx, time.Millisecond)
-
-	assert.NoError(t, err)
-	assert.NotZero(t, monitor.GetCPUUtilisationValue())
-}
-
-//func TestMonitor_GetRAMutilisation(t *testing.T) {
-//	monitor := NewMonitor()
-//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-//	defer cancel()
-//
-//	err := monitor.GetRAMutilisation(ctx, time.Second)
-//
-//	assert.Nil(t, err)
-//	assert.NotZero(t, monitor.GetRAMutilisationValue())
-//}

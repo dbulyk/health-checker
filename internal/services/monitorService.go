@@ -17,10 +17,23 @@ const (
 	DangerZone  = "danger"
 )
 
+type proc struct {
+	PercentProcessorTime uint64
+	TimeStamp_Sys100NS   uint64
+}
+
+type mem struct {
+	AvailableMBytes uint64
+}
+
+type memInfo struct {
+	Capacity uint64
+}
+
 type Monitor struct {
 	cpuUtilisation models.Utilisation
-	//ramutilisation models.utilisation
-	PollCount atomic.Int64
+	ramUtilisation models.Utilisation
+	PollCount      atomic.Int64
 }
 
 func NewMonitor() *Monitor {
@@ -37,20 +50,20 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 		}
 	}()
 
-	//go func() {
-	//	slog.Debug("начат мониторинг загрузки памяти")
-	//
-	//	err := m.GetRAMutilisation(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("ошибка получения данных памяти", "error", err)
-	//	}
-	//}()
+	go func() {
+		slog.Debug("RAM load monitoring started")
+
+		err := m.GetRAMUtilisation(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("RAM data retrieval error", "error", err)
+		}
+	}()
 }
 
 func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration) error {
 	var (
-		startPoint         []models.Processor
-		endPoint           []models.Processor
+		startPoint         []proc
+		endPoint           []proc
 		startPointProcTime uint64
 		startPointTS       uint64
 		endPointProcTime   uint64
@@ -124,44 +137,71 @@ func (m *Monitor) GetCPUUtilisation(ctx context.Context, interval time.Duration)
 	}
 }
 
-//func (m *Monitor) GetRAMutilisation(ctx context.Context, interval time.Duration) error {
-//	const query = "SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"
-//	var memoryPoint []models.Win32PerfFormattedDataPerfOsMemory
-//
-//	ticker := time.NewTicker(interval)
-//	defer ticker.Stop()
-//
-//	for {
-//		select {
-//		case <-ticker.C:
-//			err := wmi.Query(query, &memoryPoint)
-//			if err != nil {
-//				log.Fatal(err)
-//			}
-//
-//			if len(memoryPoint) == 0 {
-//				return errors.New("нет данных о памяти")
-//			}
-//
-//			memoryUsage := float64(memoryPoint[0].PercentCommittedBytesInUse)
-//			limitPollCount := int64(5)
-//
-//			m.ramutilisation.Lock()
-//			if m.PollCount.Load() > limitPollCount {
-//				m.ramutilisation.Value = memoryUsage
-//				m.PollCount.Swap(1)
-//			} else {
-//				m.ramutilisation.Value += memoryUsage
-//				m.PollCount.Add(1)
-//			}
-//			slog.Debug("", "Загрузка памяти", m.ramutilisation.Value/float64(m.PollCount.Load()))
-//			m.ramutilisation.Unlock()
-//		case <-ctx.Done():
-//			slog.Debug("мониторинг загрузки памяти остановлен")
-//			return nil
-//		}
-//	}
-//}
+func (m *Monitor) GetRAMUtilisation(ctx context.Context, interval time.Duration) error {
+	var (
+		memI            []memInfo
+		capacity        uint64
+		availableMemory float64
+		highLoadCounter int
+	)
+
+	query := "SELECT * FROM Win32_PhysicalMemory"
+	err := wmi.Query(query, &memI)
+	if err != nil {
+		return err
+	}
+	if len(memI) == 0 {
+		return errors.New("no memory data")
+	}
+
+	for _, v := range memI {
+		capacity += v.Capacity
+	}
+	capacity = capacity / 1024 / 1024
+	slog.Debug("", "memory capacity", capacity)
+
+	query = "SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"
+	var memoryPoint []mem
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			err = wmi.Query(query, &memoryPoint)
+			if err != nil {
+				return err
+			}
+			if len(memoryPoint) == 0 {
+				return errors.New("no memory data")
+			}
+
+			availableMemory = float64(memoryPoint[0].AvailableMBytes) / float64(capacity) * 100
+			slog.Debug("", "available memory in percent", availableMemory)
+
+			if availableMemory < 25 {
+				highLoadCounter++
+			} else if highLoadCounter > 0 {
+				highLoadCounter--
+			}
+
+			m.ramUtilisation.Lock()
+			if highLoadCounter > 10 || availableMemory <= 10 {
+				m.ramUtilisation.LoadZone = DangerZone
+			} else if highLoadCounter > 0 {
+				m.ramUtilisation.LoadZone = WarningZone
+			} else {
+				m.ramUtilisation.LoadZone = NormalZone
+			}
+			m.ramUtilisation.Value = availableMemory
+			m.ramUtilisation.Unlock()
+		case <-ctx.Done():
+			slog.Debug("RAM load monitoring is stopped")
+			return nil
+		}
+	}
+}
 
 func (m *Monitor) GetCPUUtilisationValue() *models.Utilisation {
 	m.cpuUtilisation.Lock()
@@ -170,9 +210,9 @@ func (m *Monitor) GetCPUUtilisationValue() *models.Utilisation {
 	return &m.cpuUtilisation
 }
 
-//func (m *Monitor) GetRAMutilisationValue() float64 {
-//	m.ramutilisation.Lock()
-//	defer m.ramutilisation.Unlock()
-//
-//	return m.ramutilisation.Value / float64(m.PollCount.Load())
-//}
+func (m *Monitor) GetRAMUtilisationValue() *models.Utilisation {
+	m.ramUtilisation.Lock()
+	defer m.ramUtilisation.Unlock()
+
+	return &m.ramUtilisation
+}
