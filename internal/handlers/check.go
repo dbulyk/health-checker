@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"fmt"
-	"health-checker/internal/configs"
 	"health-checker/internal/services"
 	"log/slog"
 	"net/http"
@@ -10,34 +8,51 @@ import (
 
 var (
 	monitor *services.Monitor
-	cfg     configs.Checker
 )
 
-func NewRouter(m *services.Monitor, c configs.Checker) *http.ServeMux {
+func NewRouter(m *services.Monitor) *http.ServeMux {
 	monitor = m
-	cfg = c
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/check", checkUtilization)
+	mux.HandleFunc("/check", checkUtilisation)
 	return mux
 }
 
-func checkUtilization(w http.ResponseWriter, _ *http.Request) {
-	cpuUsage := monitor.GetCPUUtilizationValue()
-	memoryUsage := monitor.GetRAMUtilizationValue()
+func checkUtilisation(w http.ResponseWriter, _ *http.Request) {
+	cpuUsage := monitor.GetCPUUtilisationValue()
 
-	fmt.Printf("Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
-
-	if cpuUsage > cfg.Threshold || memoryUsage > cfg.Threshold {
+	switch cpuUsage.LoadZone {
+	case services.WarningZone:
+		_, err := w.Write([]byte("CPU utilisation exceeds 75%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+			return
+		}
+	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("CPU utilisation exceeds 90%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+			return
+		}
 	}
 
-	_, err := fmt.Fprintf(w, "Утилизация процессора: %.2f%%\nУтилизация памяти: %.2f%%\n", cpuUsage, memoryUsage)
-	if err != nil {
-		slog.Error("ошибка записи ответа", "ошибка", err)
-		http.Error(w, "ошибка записи ответа", http.StatusInternalServerError)
-		return
+	memUsage := monitor.GetRAMUtilisationValue()
+	switch memUsage.LoadZone {
+	case services.WarningZone:
+		_, err := w.Write([]byte("RAM utilisation exceeds 75%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+			return
+		}
+	case services.DangerZone:
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, err := w.Write([]byte("RAM utilisation exceeds 90%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+			return
+		}
 	}
+
+	w.WriteHeader(http.StatusOK)
 }

@@ -18,7 +18,7 @@ import (
 
 func main() {
 	if runtime.GOOS != "windows" {
-		slog.Info("поддерживается только Windows")
+		slog.Info("only windows supported")
 		os.Exit(1)
 	}
 
@@ -31,11 +31,11 @@ func main() {
 
 		handler := slog.NewTextHandler(os.Stdout, opts)
 		slog.SetDefault(slog.New(handler))
-		slog.Debug("сервер запущен в режиме отладки")
+		slog.Debug("debug mode enabled")
 	}
 
 	if cfg.Interval < 0 {
-		slog.Error("неккоректный интервал, укажите >= 0", "интервал", cfg.Interval)
+		slog.Error("incorrect interval, please specify >= 0")
 		return
 	}
 
@@ -47,30 +47,30 @@ func main() {
 
 	address := cfg.Address + ":" + cfg.Port
 
-	mux := handlers.NewRouter(monitor, cfg)
+	mux := handlers.NewRouter(monitor)
 
 	srv := &http.Server{
 		Addr:              address,
 		ReadHeaderTimeout: 5 * time.Second,
 		Handler:           mux,
 	}
-	slog.Info("сервер запущен", "адрес", address)
+	slog.Info("server started", "address", address)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("ошибка: %v", err)
+			log.Fatalf("error: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	slog.Info("сервер останавливается. Пожалуйста, подождите...")
+	slog.Info("the server is stopping. Please wait...")
 	shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownContext); err != nil {
-		slog.Error("ошибка остановки сервера,", "ошибка", err)
+		slog.Error("server stop error,", "error", err)
 	}
 
 	<-shutdownContext.Done()
-	slog.Info("сервер остановлен")
+	slog.Info("server stopped")
 }
