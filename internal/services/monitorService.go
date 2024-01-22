@@ -43,23 +43,23 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
-	//go func() {
-	//	slog.Debug("monitoring of the processor load is started")
-	//
-	//	err := m.GetCPUUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("processor data retrieval error", "error", err)
-	//	}
-	//}()
-	//
-	//go func() {
-	//	slog.Debug("RAM load monitoring started")
-	//
-	//	err := m.GetRAMUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("RAM data retrieval error", "error", err)
-	//	}
-	//}()
+	go func() {
+		slog.Debug("monitoring of the processor load is started")
+
+		err := m.GetCPUUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("processor data retrieval error", "error", err)
+		}
+	}()
+
+	go func() {
+		slog.Debug("RAM load monitoring started")
+
+		err := m.GetRAMUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("RAM data retrieval error", "error", err)
+		}
+	}()
 
 	go func() {
 		slog.Debug("network load monitoring started")
@@ -219,8 +219,12 @@ func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration)
 }
 
 func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration) error {
-	var netInfo []net
-	query := "SELECT * FROM Win32_PerfFormattedData_Tcpip_NetworkInterface "
+	var (
+		netInfo         []net
+		highLoadCounter int
+		netUtil         float64
+	)
+	query := "SELECT * FROM Win32_PerfFormattedData_Tcpip_NetworkInterface"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -235,9 +239,25 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 				return errors.New("no network data")
 			}
 
-			out := float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 1000
-			slog.Debug("", "network utilization", out)
+			netUtil = float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 1000
+			slog.Debug("", "network utilization", netUtil)
 
+			if netUtil > 85 {
+				highLoadCounter++
+			} else if highLoadCounter > 0 {
+				highLoadCounter--
+			}
+
+			m.netUtilization.Lock()
+			if highLoadCounter > 10 || netUtil >= 95 {
+				m.netUtilization.LoadZone = DangerZone
+			} else if highLoadCounter > 0 {
+				m.netUtilization.LoadZone = WarningZone
+			} else {
+				m.netUtilization.LoadZone = NormalZone
+			}
+			m.netUtilization.Value = netUtil
+			m.netUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("network load monitoring is stopped")
 			return nil
