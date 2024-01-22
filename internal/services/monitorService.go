@@ -49,7 +49,7 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 	go func() {
 		slog.Debug("monitoring of the processor load is started")
 
-		err := m.GetCPUUtilization(ctx, cfg.Interval)
+		err := m.getCPUUtilization(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("processor data retrieval error", "error", err)
 		}
@@ -58,7 +58,7 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 	go func() {
 		slog.Debug("RAM load monitoring started")
 
-		err := m.GetRAMUtilization(ctx, cfg.Interval)
+		err := m.getRAMUtilization(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("RAM data retrieval error", "error", err)
 		}
@@ -72,9 +72,18 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 			slog.Error("network data retrieval error", "error", err)
 		}
 	}()
+
+	go func() {
+		slog.Debug("disk load monitoring started")
+
+		err := m.getDiskUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("disk data retrieval error", "error", err)
+		}
+	}()
 }
 
-func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration) error {
 	var (
 		startPoint         []proc
 		endPoint           []proc
@@ -151,7 +160,7 @@ func (m *Monitor) GetCPUUtilization(ctx context.Context, interval time.Duration)
 	}
 }
 
-func (m *Monitor) GetRAMUtilization(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration) error {
 	type memInfo struct {
 		Capacity uint64
 	}
@@ -269,7 +278,7 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 
 }
 
-func (m *Monitor) GetDiskUtilization(ctx context.Context, interval time.Duration) error {
+func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration) error {
 	var (
 		diskInfo        []disk
 		highLoadCounter int
@@ -293,14 +302,14 @@ func (m *Monitor) GetDiskUtilization(ctx context.Context, interval time.Duration
 			diskUtil = float64(diskInfo[0].PercentDiskTime)
 			slog.Debug("", "disk utilization", diskUtil)
 
-			if diskUtil > 85 {
+			if diskUtil > 75 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.diskUtilization.Lock()
-			if highLoadCounter > 10 || diskUtil >= 95 {
+			if highLoadCounter > 10 || diskUtil >= 90 {
 				m.diskUtilization.LoadZone = DangerZone
 			} else if highLoadCounter > 0 {
 				m.diskUtilization.LoadZone = WarningZone

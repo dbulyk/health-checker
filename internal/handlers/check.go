@@ -67,7 +67,27 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	slog.Debug("System utilization:", "cpu", cpuUsage.Value, "RAM", memUsage.Value, "network", netUsage.Value)
+	diskUsage := monitor.GetDiskUtilizationValue()
+	switch diskUsage.LoadZone {
+	case services.WarningZone:
+		_, err := w.Write([]byte("Disk utilization exceeds 75%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+		}
+	case services.DangerZone:
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, err := w.Write([]byte("Disk utilization exceeds 90%."))
+		if err != nil {
+			slog.Error("response recording error", "error", err)
+			return
+		}
+	}
+
+	slog.Debug("System utilization:",
+		"CPU", cpuUsage.Value,
+		"RAM", memUsage.Value,
+		"network", netUsage.Value,
+		"disk", diskUsage.Value)
 
 	w.WriteHeader(http.StatusOK)
 }

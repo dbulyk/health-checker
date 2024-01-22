@@ -26,4 +26,7 @@ func TestMonitor_Start(t *testing.T) {
 
 	assert.NotNil(t, monitor.GetNetUtilizationValue())
 	assert.NotZero(t, monitor.GetNetUtilizationValue())
+
+	assert.NotNil(t, monitor.GetDiskUtilizationValue())
+	assert.NotZero(t, monitor.GetDiskUtilizationValue())
 }
