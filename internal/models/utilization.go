@@ -2,7 +2,7 @@ package models
 
 import "sync"
 
-type Utilisation struct {
+type Utilization struct {
 	sync.Mutex
 	Value    float64
 	LoadZone string

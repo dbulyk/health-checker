@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCheck_CPUUtilisationNormalZone(t *testing.T) {
+func TestCheck_CPUUtilizationNormalZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -24,7 +24,7 @@ func TestCheck_CPUUtilisationNormalZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetCPUUtilisationValue()
+	q := m.GetCPUUtilizationValue()
 	q.LoadZone = services.NormalZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -34,7 +34,7 @@ func TestCheck_CPUUtilisationNormalZone(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
-func TestCheck_CPUUtilisationWarningZone(t *testing.T) {
+func TestCheck_CPUUtilizationWarningZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -46,7 +46,7 @@ func TestCheck_CPUUtilisationWarningZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetCPUUtilisationValue()
+	q := m.GetCPUUtilizationValue()
 	q.LoadZone = services.WarningZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -54,10 +54,10 @@ func TestCheck_CPUUtilisationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "CPU utilisation exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "CPU utilization exceeds 75%.", rr.Body.String())
 }
 
-func TestCheck_CPUUtilisationDangerZone(t *testing.T) {
+func TestCheck_CPUUtilizationDangerZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -69,7 +69,7 @@ func TestCheck_CPUUtilisationDangerZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetCPUUtilisationValue()
+	q := m.GetCPUUtilizationValue()
 	q.LoadZone = services.DangerZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -77,9 +77,10 @@ func TestCheck_CPUUtilisationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Equal(t, "CPU utilization exceeds 90%.", rr.Body.String())
 }
 
-func TestCheck_RAMUtilisationNormalZone(t *testing.T) {
+func TestCheck_RAMUtilizationNormalZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -91,7 +92,7 @@ func TestCheck_RAMUtilisationNormalZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetRAMUtilisationValue()
+	q := m.GetRAMUtilizationValue()
 	q.LoadZone = services.NormalZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -101,7 +102,7 @@ func TestCheck_RAMUtilisationNormalZone(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
-func TestCheck_RAMUtilisationWarningZone(t *testing.T) {
+func TestCheck_RAMUtilizationWarningZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -113,7 +114,7 @@ func TestCheck_RAMUtilisationWarningZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetRAMUtilisationValue()
+	q := m.GetRAMUtilizationValue()
 	q.LoadZone = services.WarningZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -121,10 +122,10 @@ func TestCheck_RAMUtilisationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "RAM utilisation exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "RAM utilization exceeds 75%.", rr.Body.String())
 }
 
-func TestCheck_RAMUtilisationDangerZone(t *testing.T) {
+func TestCheck_RAMUtilizationDangerZone(t *testing.T) {
 	m := &services.Monitor{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -136,7 +137,7 @@ func TestCheck_RAMUtilisationDangerZone(t *testing.T) {
 
 	router := NewRouter(m)
 
-	q := m.GetRAMUtilisationValue()
+	q := m.GetRAMUtilizationValue()
 	q.LoadZone = services.DangerZone
 	req, _ := http.NewRequest("GET", "/check", nil)
 	rr := httptest.NewRecorder()
@@ -144,4 +145,73 @@ func TestCheck_RAMUtilisationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Equal(t, "RAM utilization exceeds 90%.", rr.Body.String())
+}
+
+func TestCheck_NETUtilizationNormalZone(t *testing.T) {
+	m := &services.Monitor{}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	c := configs.Checker{Interval: time.Millisecond}
+	m.Start(ctx, c)
+
+	time.Sleep(time.Millisecond * 5)
+
+	router := NewRouter(m)
+
+	q := m.GetNetUtilizationValue()
+	q.LoadZone = services.NormalZone
+	req, _ := http.NewRequest("GET", "/check", nil)
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestCheck_NETUtilizationWarningZone(t *testing.T) {
+	m := &services.Monitor{}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	c := configs.Checker{Interval: time.Microsecond}
+	m.Start(ctx, c)
+
+	time.Sleep(time.Millisecond * 5)
+
+	router := NewRouter(m)
+
+	q := m.GetNetUtilizationValue()
+	q.LoadZone = services.WarningZone
+	req, _ := http.NewRequest("GET", "/check", nil)
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "Network utilization exceeds 75%.", rr.Body.String())
+}
+
+func TestCheck_NETUtilizationDangerZone(t *testing.T) {
+	m := &services.Monitor{}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	c := configs.Checker{Interval: time.Microsecond}
+	m.Start(ctx, c)
+
+	time.Sleep(time.Millisecond * 5)
+
+	router := NewRouter(m)
+
+	q := m.GetNetUtilizationValue()
+	q.LoadZone = services.DangerZone
+	req, _ := http.NewRequest("GET", "/check", nil)
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Equal(t, "Network utilization exceeds 90%.", rr.Body.String())
 }
