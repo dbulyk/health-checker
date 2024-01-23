@@ -28,7 +28,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("CPU utilization exceeds 90%."))
+		_, err := w.Write([]byte("CPU utilization exceeds 90%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
@@ -44,7 +44,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("RAM utilization exceeds 90%."))
+		_, err := w.Write([]byte("RAM utilization exceeds 90%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
@@ -60,7 +60,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("Network utilization exceeds 90%."))
+		_, err := w.Write([]byte("Network utilization exceeds 90%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return
@@ -76,7 +76,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		}
 	case services.DangerZone:
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("Disk utilization exceeds 90%."))
+		_, err := w.Write([]byte("Disk utilization exceeds 90%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 			return

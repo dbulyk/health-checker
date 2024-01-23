@@ -46,14 +46,14 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
-	go func() {
-		slog.Debug("monitoring of the processor load is started")
-
-		err := m.getCPUUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("processor data retrieval error", "error", err)
-		}
-	}()
+	//go func() {
+	//	slog.Debug("monitoring of the processor load is started")
+	//
+	//	err := m.getCPUUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("processor data retrieval error", "error", err)
+	//	}
+	//}()
 
 	go func() {
 		slog.Debug("RAM load monitoring started")
@@ -64,23 +64,23 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 		}
 	}()
 
-	go func() {
-		slog.Debug("network load monitoring started")
-
-		err := m.getNetUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("network data retrieval error", "error", err)
-		}
-	}()
-
-	go func() {
-		slog.Debug("disk load monitoring started")
-
-		err := m.getDiskUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("disk data retrieval error", "error", err)
-		}
-	}()
+	//go func() {
+	//	slog.Debug("network load monitoring started")
+	//
+	//	err := m.getNetUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("network data retrieval error", "error", err)
+	//	}
+	//}()
+	//
+	//go func() {
+	//	slog.Debug("disk load monitoring started")
+	//
+	//	err := m.getDiskUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("disk data retrieval error", "error", err)
+	//	}
+	//}()
 }
 
 func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration) error {
@@ -92,6 +92,7 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 		endPointProcTime   uint64
 		endPointTS         uint64
 		highLoadCounter    int
+		err                error
 	)
 
 	const query = "SELECT * FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
@@ -102,7 +103,7 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 	for {
 		select {
 		case <-ticker.C:
-			err := wmi.Query(query, &startPoint)
+			err = wmi.Query(query, &startPoint)
 			if err != nil {
 				return err
 			}
@@ -170,6 +171,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 		capacity        uint64
 		availableMemory float64
 		highLoadCounter int
+		avg             float64
 	)
 
 	query := "SELECT * FROM Win32_PhysicalMemory"
@@ -193,6 +195,8 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	buf := models.NewRingBuffer(10)
+
 	for {
 		select {
 		case <-ticker.C:
@@ -206,22 +210,24 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 
 			availableMemory = float64(memoryPoint[0].AvailableMBytes) / float64(capacity) * 100
 			slog.Debug("", "available memory in percent", availableMemory)
+			buf.Add(availableMemory)
 
-			if availableMemory <= 25 {
+			avg = buf.GetAverage()
+			if avg <= 25 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.ramUtilization.Lock()
-			if availableMemory <= 10 {
+			if avg <= 10 {
 				m.ramUtilization.LoadZone = DangerZone
 			} else if highLoadCounter >= 10 {
 				m.ramUtilization.LoadZone = WarningZone
 			} else {
 				m.ramUtilization.LoadZone = NormalZone
 			}
-			m.ramUtilization.Value = availableMemory
+			m.ramUtilization.Value = avg
 			m.ramUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("RAM load monitoring is stopped")
@@ -235,15 +241,19 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 		netInfo         []net
 		highLoadCounter int
 		netUtil         float64
+		avg             float64
+		err             error
 	)
 	query := "SELECT * FROM Win32_PerfFormattedData_Tcpip_NetworkInterface"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	buf := models.NewRingBuffer(10)
+
 	for {
 		select {
 		case <-ticker.C:
-			err := wmi.Query(query, &netInfo)
+			err = wmi.Query(query, &netInfo)
 			if err != nil {
 				return err
 			}
@@ -253,22 +263,24 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 
 			netUtil = 8 * float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 100
 			slog.Debug("", "network utilization", netUtil)
+			buf.Add(netUtil)
 
-			if netUtil >= 80 {
+			avg = buf.GetAverage()
+			if avg >= 80 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.netUtilization.Lock()
-			if netUtil >= 90 {
+			if avg >= 90 {
 				m.netUtilization.LoadZone = DangerZone
 			} else if highLoadCounter >= 10 {
 				m.netUtilization.LoadZone = WarningZone
 			} else {
 				m.netUtilization.LoadZone = NormalZone
 			}
-			m.netUtilization.Value = netUtil
+			m.netUtilization.Value = avg
 			m.netUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("network load monitoring is stopped")
@@ -283,15 +295,18 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 		diskInfo        []disk
 		highLoadCounter int
 		diskUtil        float64
+		err             error
+		avg             float64
 	)
 	query := "SELECT * FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name = '_Total'"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	buf := models.NewRingBuffer(10)
 	for {
 		select {
 		case <-ticker.C:
-			err := wmi.Query(query, &diskInfo)
+			err = wmi.Query(query, &diskInfo)
 			if err != nil {
 				return err
 			}
@@ -301,22 +316,24 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 
 			diskUtil = float64(diskInfo[0].PercentDiskTime)
 			slog.Debug("", "disk utilization", diskUtil)
+			buf.Add(diskUtil)
 
-			if diskUtil >= 75 {
+			avg = buf.GetAverage()
+			if avg >= 75 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.diskUtilization.Lock()
-			if diskUtil >= 90 {
+			if avg >= 90 {
 				m.diskUtilization.LoadZone = DangerZone
 			} else if highLoadCounter >= 10 {
 				m.diskUtilization.LoadZone = WarningZone
 			} else {
 				m.diskUtilization.LoadZone = NormalZone
 			}
-			m.diskUtilization.Value = diskUtil
+			m.diskUtilization.Value = avg
 			m.diskUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("disk load monitoring is stopped")

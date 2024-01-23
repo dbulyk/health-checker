@@ -54,7 +54,7 @@ func TestCheck_CPUUtilizationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "CPU utilization exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "CPU utilization exceeds 75%.\n", rr.Body.String())
 }
 
 func TestCheck_CPUUtilizationDangerZone(t *testing.T) {
@@ -77,7 +77,7 @@ func TestCheck_CPUUtilizationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
-	assert.Equal(t, "CPU utilization exceeds 90%.", rr.Body.String())
+	assert.Equal(t, "CPU utilization exceeds 90%.\n", rr.Body.String())
 }
 
 func TestCheck_RAMUtilizationNormalZone(t *testing.T) {
@@ -122,7 +122,7 @@ func TestCheck_RAMUtilizationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "RAM utilization exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "RAM utilization exceeds 75%.\n", rr.Body.String())
 }
 
 func TestCheck_RAMUtilizationDangerZone(t *testing.T) {
@@ -145,7 +145,7 @@ func TestCheck_RAMUtilizationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
-	assert.Equal(t, "RAM utilization exceeds 90%.", rr.Body.String())
+	assert.Equal(t, "RAM utilization exceeds 90%.\n", rr.Body.String())
 }
 
 func TestCheck_NETUtilizationNormalZone(t *testing.T) {
@@ -190,7 +190,7 @@ func TestCheck_NETUtilizationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "Network utilization exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "Network utilization exceeds 75%.\n", rr.Body.String())
 }
 
 func TestCheck_NETUtilizationDangerZone(t *testing.T) {
@@ -213,7 +213,7 @@ func TestCheck_NETUtilizationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
-	assert.Equal(t, "Network utilization exceeds 90%.", rr.Body.String())
+	assert.Equal(t, "Network utilization exceeds 90%.\n", rr.Body.String())
 }
 
 func TestCheck_DiskUtilizationNormalZone(t *testing.T) {
@@ -264,7 +264,7 @@ func TestCheck_DiskUtilizationWarningZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "Disk utilization exceeds 75%.", rr.Body.String())
+	assert.Equal(t, "Disk utilization exceeds 75%.\n", rr.Body.String())
 }
 
 func TestCheck_DiskUtilizationDangerZone(t *testing.T) {
@@ -290,5 +290,5 @@ func TestCheck_DiskUtilizationDangerZone(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
-	assert.Equal(t, "Disk utilization exceeds 90%.", rr.Body.String())
+	assert.Equal(t, "Disk utilization exceeds 90%.\n", rr.Body.String())
 }
