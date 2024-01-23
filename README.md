@@ -1,30 +1,31 @@
-## Description
-health-checker is a small application for checking the health of a service. 
-It is designed to be used in an environment where the service may be running on a different host than the 
-health checker. The health checker will poll the service for CPU and RAM utilization and if some of these things exceeds a certain threshold,
-it will return a 503 error (StatusServiceUnavailable) to the client. In other cases, it returns a 200 (StatusOK) response.
+## Описание
+health-checker это сервис, который проверяет загруженность систем и возвращает 503 ошибку, если загруженность превышает заданный порог (90%).
+Он также предоставляет эндпоинт для проверки своего состояния ("address"/check). В случае если загруженность какой-то системы входит в зону значительного превышения порога, то через 10 интервалов, 
+заданных пользователем  (StatusServiceUnavailable). Отслеживаются утилизации CPU, RAM, сети и дисковго I/O.
 
+## Доступность
+Приложение доступно только для Windows из-за использования WMI для получения информации о системе.
 
-## Flags/Environment Variables
-| Flag/Environment Variable | Description                                                                                                                                              | Default    |
-|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
-| -i / CHECK_INTERVAL       | Interval in seconds by which cpu resource utilization will be polled _(Do not set the interval too large, <br/>otherwise the values will be too smooth)_ | 60 seconds |
-| -u / THRESHOLD            | utilization boundary in percent, after which the service will start returning 503 error _(StatusServiceUnavailable)_                                     | 80         |
-| -p / PORT                 | Port on which the health checker will listen for requests                                                                                                | 8080       |
-| -a / ADDRESS              | Address on which the health checker will listen for requests                                                                                             | localhost  |
-| -d / DEBUG                | If set to true, the health checker will print debug information to stdout _(Do not specify it if you don't need debug messages)_                         | false      |
+## Флаги/Переменные окружения
+| Флаги/Переменные окружения | Описание                                                                                                                | Стандартное значение |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------|----------------------|
+| -i / CHECK_INTERVAL        | Интервал в секундах, по тику которого будет проводиться опрос систем.                                                   | 60 секунд            |
+| -p / PORT                  | Порт, по которому будет доступно приложение                                                                             | 8080                 |
+| -a / ADDRESS               | Адрес, по которому будет доступно приложение                                                                            | localhost            |
+| -d / DEBUG                 | Если установлен, то в консоль будут выводиться сообщения отладки _(Не указывайте, если вам не нужны сообщения отладки)_ | false                |
 
-_Note that if both flags and environment variables are specified, environment variables have higher priority_
+_Заметьте, что если указаны и флаги и переменные окружения, то переменные окружения имеют больший приоритет_
 
-## Usage
-Compile the application with `go build` or download it from releases and run it with `./health-checker`. Specify flags as needed.
+## Использование
+Скомпилируйте придожение с помощью команды `go build` или загрузите его из релизов на Гитхабе и запустите с помощью команды `./health-checker`. Укажите флаги если необходимо.
 
-## Handling requests
-The health checker will respond to GET requests on the `address:port/check` endpoint.
+## Прослушивание эндпоинта
+Приложение будет ожидать GET-запросы на `address:port/check` эндпоинте.
 
-## Example
-For macOS, run `./health-checker -i 10s -u 90 -p 8080 -a localhost -d` or `CHECK_INTERVAL=10s THRESHOLD=90 PORT=8080 ADDRESS=localhost DEBUG=true ./health-checker` </br></br>
-For Windows, run `health-checker.exe -i 10s -u 90 -p 8080 -a localhost -d` or `CHECK_INTERVAL=10s THRESHOLD=90 PORT=8080 ADDRESS=localhost DEBUG=true health-checker.exe`
+## Пример
+Запустите приложение командой `health-checker.exe -i 10s -p 8080 -a localhost -d` или `CHECK_INTERVAL=10s PORT=8080 ADDRESS=localhost DEBUG=true health-checker.exe`
 
-## Libraries used
-- [Gopsutil](https://github.com/shirou/gopsutil) for getting CPU and RAM utilization
+## Используемые библиотеки
+- [env](https://github.com/caarlos0/env) для парсинга переменных окружения
+- [testify](https://github.com/stretchr/testify) для тестирования
+- [wmi](https://github.com/yusufpapurcu/wmi) для обращения через WMI к системе
