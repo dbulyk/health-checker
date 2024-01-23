@@ -46,14 +46,14 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
-	//go func() {
-	//	slog.Debug("monitoring of the processor load is started")
-	//
-	//	err := m.getCPUUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("processor data retrieval error", "error", err)
-	//	}
-	//}()
+	go func() {
+		slog.Debug("monitoring of the processor load is started")
+
+		err := m.getCPUUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("processor data retrieval error", "error", err)
+		}
+	}()
 
 	go func() {
 		slog.Debug("RAM load monitoring started")
@@ -64,23 +64,23 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 		}
 	}()
 
-	//go func() {
-	//	slog.Debug("network load monitoring started")
-	//
-	//	err := m.getNetUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("network data retrieval error", "error", err)
-	//	}
-	//}()
-	//
-	//go func() {
-	//	slog.Debug("disk load monitoring started")
-	//
-	//	err := m.getDiskUtilization(ctx, cfg.Interval)
-	//	if err != nil {
-	//		slog.Error("disk data retrieval error", "error", err)
-	//	}
-	//}()
+	go func() {
+		slog.Debug("network load monitoring started")
+
+		err := m.getNetUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("network data retrieval error", "error", err)
+		}
+	}()
+
+	go func() {
+		slog.Debug("disk load monitoring started")
+
+		err := m.getDiskUtilization(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("disk data retrieval error", "error", err)
+		}
+	}()
 }
 
 func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration) error {
@@ -319,7 +319,7 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			buf.Add(diskUtil)
 
 			avg = buf.GetAverage()
-			if avg >= 75 {
+			if avg >= 80 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
