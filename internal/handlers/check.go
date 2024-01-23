@@ -22,7 +22,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	cpuUsage := monitor.GetCPUUtilizationValue()
 	switch cpuUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("CPU utilization exceeds 75%."))
+		_, err := w.Write([]byte("CPU utilization exceeds 75%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 		}
@@ -38,7 +38,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	memUsage := monitor.GetRAMUtilizationValue()
 	switch memUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("RAM utilization exceeds 75%."))
+		_, err := w.Write([]byte("RAM utilization exceeds 75%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 		}
@@ -54,7 +54,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	netUsage := monitor.GetNetUtilizationValue()
 	switch netUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("Network utilization exceeds 75%."))
+		_, err := w.Write([]byte("Network utilization exceeds 75%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 		}
@@ -70,7 +70,7 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	diskUsage := monitor.GetDiskUtilizationValue()
 	switch diskUsage.LoadZone {
 	case services.WarningZone:
-		_, err := w.Write([]byte("Disk utilization exceeds 75%."))
+		_, err := w.Write([]byte("Disk utilization exceeds 75%.\n"))
 		if err != nil {
 			slog.Error("response recording error", "error", err)
 		}
@@ -88,6 +88,4 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		"RAM", memUsage.Value,
 		"network", netUsage.Value,
 		"disk", diskUsage.Value)
-
-	w.WriteHeader(http.StatusOK)
 }

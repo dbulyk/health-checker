@@ -133,7 +133,7 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 				is based on https://learn.microsoft.com/en-us/windows/win32/wmisdk/monitoring-performance-data#using-raw-performance-data-classes
 			*/
 			cpuUtil := (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
-			if cpuUtil > 75 {
+			if cpuUtil >= 75 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
@@ -141,9 +141,9 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 
 			m.cpuUtilization.Lock()
 
-			if highLoadCounter > 10 || cpuUtil >= 90 {
+			if cpuUtil >= 90 {
 				m.cpuUtilization.LoadZone = DangerZone
-			} else if highLoadCounter > 0 {
+			} else if highLoadCounter >= 10 {
 				m.cpuUtilization.LoadZone = WarningZone
 			} else {
 				m.cpuUtilization.LoadZone = NormalZone
@@ -207,16 +207,16 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 			availableMemory = float64(memoryPoint[0].AvailableMBytes) / float64(capacity) * 100
 			slog.Debug("", "available memory in percent", availableMemory)
 
-			if availableMemory < 25 {
+			if availableMemory <= 25 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.ramUtilization.Lock()
-			if highLoadCounter > 10 || availableMemory <= 10 {
+			if availableMemory <= 10 {
 				m.ramUtilization.LoadZone = DangerZone
-			} else if highLoadCounter > 0 {
+			} else if highLoadCounter >= 10 {
 				m.ramUtilization.LoadZone = WarningZone
 			} else {
 				m.ramUtilization.LoadZone = NormalZone
@@ -254,16 +254,16 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 			netUtil = 8 * float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 100
 			slog.Debug("", "network utilization", netUtil)
 
-			if netUtil > 80 {
+			if netUtil >= 80 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.netUtilization.Lock()
-			if highLoadCounter > 10 || netUtil >= 90 {
+			if netUtil >= 90 {
 				m.netUtilization.LoadZone = DangerZone
-			} else if highLoadCounter > 0 {
+			} else if highLoadCounter >= 10 {
 				m.netUtilization.LoadZone = WarningZone
 			} else {
 				m.netUtilization.LoadZone = NormalZone
@@ -302,16 +302,16 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			diskUtil = float64(diskInfo[0].PercentDiskTime)
 			slog.Debug("", "disk utilization", diskUtil)
 
-			if diskUtil > 75 {
+			if diskUtil >= 75 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
 
 			m.diskUtilization.Lock()
-			if highLoadCounter > 10 || diskUtil >= 90 {
+			if diskUtil >= 90 {
 				m.diskUtilization.LoadZone = DangerZone
-			} else if highLoadCounter > 0 {
+			} else if highLoadCounter >= 10 {
 				m.diskUtilization.LoadZone = WarningZone
 			} else {
 				m.diskUtilization.LoadZone = NormalZone
