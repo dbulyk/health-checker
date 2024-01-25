@@ -28,7 +28,6 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 	netUsage := monitor.GetNetUtilizationValue()
 	diskUsage := monitor.GetDiskUtilizationValue()
 
-	memUsage.LoadZone = services.WarningZone
 	if cpuUsage.LoadZone == services.DangerZone ||
 		memUsage.LoadZone == services.DangerZone ||
 		netUsage.LoadZone == services.DangerZone ||
@@ -36,27 +35,22 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	_, err := fmt.Fprintf(w, "<table>")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		slog.Error("response recording error", "error", err)
-		return
-	}
+	html := "<html><head><title>Health Checker</title></head><body><h1>Health Checker</h1><table>"
+	html = writeUtilization(html, "CPU", cpuUsage)
+	html = writeUtilization(html, "RAM", memUsage)
+	html = writeUtilization(html, "Network", netUsage)
+	html = writeUtilization(html, "Disk", diskUsage)
 
-	writeUtilization(w, "CPU", cpuUsage)
-	writeUtilization(w, "RAM", memUsage)
-	writeUtilization(w, "Network", netUsage)
-	writeUtilization(w, "Disk", diskUsage)
+	html += "</table>"
 
-	_, err = fmt.Fprintf(w, "/<table>")
+	_, err := fmt.Fprint(w, html)
 	if err != nil {
+		slog.Error("error while writing response", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		slog.Error("response recording error", "error", err)
-		return
 	}
 }
 
-func writeUtilization(w http.ResponseWriter, name string, usage *models.Utilization) {
+func writeUtilization(html string, name string, usage *models.Utilization) string {
 	var color string
 	var message string
 
@@ -71,10 +65,6 @@ func writeUtilization(w http.ResponseWriter, name string, usage *models.Utilizat
 		color = "green"
 	}
 
-	_, err := fmt.Fprintf(w, "<tr><td>%s</td><td style='color: %s'>%s</td><td>%s</td></tr>", name, color, usage.Value, message)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		slog.Error("response recording error", "error", err)
-		return
-	}
+	html += fmt.Sprintf("<tr><td>%s</td><td style='color: %s'>%s</td><td>%s</td></tr>", name, color, usage.Value, message)
+	return html
 }
