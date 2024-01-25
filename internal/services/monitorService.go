@@ -34,6 +34,10 @@ type disk struct {
 	PercentDiskTime uint64
 }
 
+type networkName struct {
+	InterfaceDescription string
+}
+
 type Monitor struct {
 	cpuUtilization  models.Utilization
 	ramUtilization  models.Utilization
@@ -95,7 +99,7 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 		err                error
 	)
 
-	const query = "SELECT * FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
+	const query = "SELECT PercentProcessorTime, TimeStamp_Sys100NS FROM Win32_PerfRawData_PerfOS_Processor WHERE Name = '_Total'"
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -174,7 +178,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 		avg             float64
 	)
 
-	query := "SELECT * FROM Win32_PhysicalMemory"
+	query := "SELECT capacity FROM Win32_PhysicalMemory"
 	err := wmi.Query(query, &memI)
 	if err != nil {
 		return err
@@ -189,7 +193,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 	capacity = capacity / 1024 / 1024
 	slog.Debug("", "memory capacity", capacity)
 
-	query = "SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"
+	query = "SELECT AvailableMBytes FROM Win32_PerfFormattedData_PerfOS_Memory"
 	var memoryPoint []mem
 
 	ticker := time.NewTicker(interval)
@@ -238,13 +242,26 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 
 func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration) error {
 	var (
-		netInfo         []net
-		highLoadCounter int
 		netUtil         float64
 		avg             float64
+		highLoadCounter int
+		netInfo         []net
+		netName         []networkName
 		err             error
 	)
-	query := "SELECT * FROM Win32_PerfFormattedData_Tcpip_NetworkInterface"
+
+	query := "SELECT InterfaceDescription FROM MSFT_NetAdapter WHERE ConnectorPresent=1"
+	err = wmi.QueryNamespace(query, &netName, `root\StandardCimv2`)
+	if err != nil {
+		return err
+	}
+	if len(netName) == 0 {
+		return errors.New("no network data")
+	}
+
+	slog.Debug("", "network name", netName[0].InterfaceDescription)
+
+	query = "SELECT CurrentBandwidth, BytesTotalPerSec FROM Win32_PerfFormattedData_Tcpip_NetworkInterface where Name = '" + netName[0].InterfaceDescription + "'"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -298,7 +315,7 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 		err             error
 		avg             float64
 	)
-	query := "SELECT * FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name = '_Total'"
+	query := "SELECT PercentDiskTime FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name = '_Total'"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
