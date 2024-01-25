@@ -9,12 +9,17 @@ type RingBuffer struct {
 
 func NewRingBuffer(size int) *RingBuffer {
 	return &RingBuffer{
-		data: make([]float64, size),
+		data: make([]float64, 0, size),
 		size: size,
 	}
 }
 
 func (rb *RingBuffer) Add(value float64) {
+	if len(rb.data) < rb.size {
+		rb.data = append(rb.data, value)
+		return
+	}
+
 	rb.data[rb.end] = value
 	rb.end = (rb.end + 1) % rb.size
 	if rb.end == rb.start {
