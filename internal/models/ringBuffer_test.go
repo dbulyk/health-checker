@@ -8,10 +8,9 @@ import (
 func TestRingBuffer_Add(t *testing.T) {
 	rb := NewRingBuffer(3)
 
-	rb.Add(1.0)
-	rb.Add(2.0)
-	rb.Add(3.0)
-	rb.Add(4.0)
+	for i := 1; i < 5; i++ {
+		rb.Add(float64(i))
+	}
 
 	values := rb.get()
 	assert.Equal(t, []float64{4, 2, 3}, values, "Ожидались значения [4, 2, 3]")
@@ -20,9 +19,9 @@ func TestRingBuffer_Add(t *testing.T) {
 func TestRingBuffer_Get(t *testing.T) {
 	rb := NewRingBuffer(3)
 
-	rb.Add(1.0)
-	rb.Add(2.0)
-	rb.Add(3.0)
+	for i := 1; i < 4; i++ {
+		rb.Add(float64(i))
+	}
 
 	values := rb.get()
 	assert.Equal(t, []float64{1.0, 2.0, 3.0}, values, "Ожидались значения [1.0, 2.0, 3.0]")
@@ -31,11 +30,21 @@ func TestRingBuffer_Get(t *testing.T) {
 func TestRingBuffer_Average(t *testing.T) {
 	rb := NewRingBuffer(3)
 
-	rb.Add(1.0)
-	rb.Add(2.0)
-	rb.Add(3.0)
-	rb.Add(4.0)
+	for i := 1; i < 5; i++ {
+		rb.Add(float64(i))
+	}
 
 	avg := rb.GetAverage()
 	assert.Equal(t, 3.0, avg, "Ожидаемое среднее 3.0")
+}
+
+func TestRingBuffer_AverageWith10Values(t *testing.T) {
+	rb := NewRingBuffer(5)
+
+	for i := 1; i <= 10; i++ {
+		rb.Add(float64(i))
+	}
+
+	avg := rb.GetAverage()
+	assert.Equal(t, 8.0, avg, "Ожидаемое среднее 8.0")
 }

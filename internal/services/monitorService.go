@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/yusufpapurcu/wmi"
 	"health-checker/internal/configs"
 	"health-checker/internal/models"
@@ -95,7 +96,9 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 		startPointTS       uint64
 		endPointProcTime   uint64
 		endPointTS         uint64
+		cpuUtil            float64
 		highLoadCounter    int
+		cpuUtilFormatted   string
 		err                error
 	)
 
@@ -137,12 +140,13 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 				CPU utilization calculation mechanism
 				is based on https://learn.microsoft.com/en-us/windows/win32/wmisdk/monitoring-performance-data#using-raw-performance-data-classes
 			*/
-			cpuUtil := (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
+			cpuUtil = (1.0 - float64(endPointProcTime-startPointProcTime)/float64(endPointTS-startPointTS)) * 100
 			if cpuUtil >= 75 {
 				highLoadCounter++
 			} else if highLoadCounter > 0 {
 				highLoadCounter--
 			}
+			cpuUtilFormatted = fmt.Sprintf("%.*f", 2, cpuUtil)
 
 			m.cpuUtilization.Lock()
 
@@ -154,10 +158,10 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 				m.cpuUtilization.LoadZone = NormalZone
 			}
 
-			m.cpuUtilization.Value = cpuUtil
-
-			slog.Debug("", "CPU load", cpuUtil)
+			m.cpuUtilization.Value = cpuUtilFormatted
 			m.cpuUtilization.Unlock()
+
+			slog.Debug("", "CPU load", cpuUtilFormatted)
 		case <-ctx.Done():
 			slog.Debug("CPU load monitoring is stopped")
 			return nil
@@ -176,6 +180,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 		availableMemory float64
 		highLoadCounter int
 		avg             float64
+		avgFormatted    string
 	)
 
 	query := "SELECT capacity FROM Win32_PhysicalMemory"
@@ -199,7 +204,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	buf := models.NewRingBuffer(10)
+	buf := models.NewRingBuffer(5)
 
 	for {
 		select {
@@ -213,7 +218,6 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 			}
 
 			availableMemory = float64(memoryPoint[0].AvailableMBytes) / float64(capacity) * 100
-			slog.Debug("", "available memory in percent", availableMemory)
 			buf.Add(availableMemory)
 
 			avg = buf.GetAverage()
@@ -223,6 +227,9 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 				highLoadCounter--
 			}
 
+			avgFormatted = fmt.Sprintf("%.*f", 2, avg)
+			slog.Debug("", "available memory in percent", avgFormatted)
+
 			m.ramUtilization.Lock()
 			if avg <= 10 {
 				m.ramUtilization.LoadZone = DangerZone
@@ -231,7 +238,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 			} else {
 				m.ramUtilization.LoadZone = NormalZone
 			}
-			m.ramUtilization.Value = avg
+			m.ramUtilization.Value = avgFormatted
 			m.ramUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("RAM load monitoring is stopped")
@@ -247,6 +254,7 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 		highLoadCounter int
 		netInfo         []net
 		netName         []networkName
+		avgFormatted    string
 		err             error
 	)
 
@@ -265,7 +273,7 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	buf := models.NewRingBuffer(10)
+	buf := models.NewRingBuffer(5)
 
 	for {
 		select {
@@ -279,7 +287,6 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 			}
 
 			netUtil = 8 * float64(netInfo[0].BytesTotalPerSec) / float64(netInfo[0].CurrentBandwidth) * 100
-			slog.Debug("", "network utilization", netUtil)
 			buf.Add(netUtil)
 
 			avg = buf.GetAverage()
@@ -289,6 +296,8 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 				highLoadCounter--
 			}
 
+			avgFormatted = fmt.Sprintf("%.*f", 2, avg)
+			slog.Debug("", "network utilization", avgFormatted)
 			m.netUtilization.Lock()
 			if avg >= 90 {
 				m.netUtilization.LoadZone = DangerZone
@@ -297,7 +306,7 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 			} else {
 				m.netUtilization.LoadZone = NormalZone
 			}
-			m.netUtilization.Value = avg
+			m.netUtilization.Value = avgFormatted
 			m.netUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("network load monitoring is stopped")
@@ -312,14 +321,15 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 		diskInfo        []disk
 		highLoadCounter int
 		diskUtil        float64
-		err             error
 		avg             float64
+		avgFormatted    string
+		err             error
 	)
 	query := "SELECT PercentDiskTime FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name = '_Total'"
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	buf := models.NewRingBuffer(10)
+	buf := models.NewRingBuffer(5)
 	for {
 		select {
 		case <-ticker.C:
@@ -332,7 +342,6 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			}
 
 			diskUtil = float64(diskInfo[0].PercentDiskTime)
-			slog.Debug("", "disk utilization", diskUtil)
 			buf.Add(diskUtil)
 
 			avg = buf.GetAverage()
@@ -342,6 +351,8 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 				highLoadCounter--
 			}
 
+			avgFormatted = fmt.Sprintf("%.*f", 2, avg)
+			slog.Debug("", "disk utilization", avgFormatted)
 			m.diskUtilization.Lock()
 			if avg >= 90 {
 				m.diskUtilization.LoadZone = DangerZone
@@ -350,7 +361,7 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			} else {
 				m.diskUtilization.LoadZone = NormalZone
 			}
-			m.diskUtilization.Value = avg
+			m.diskUtilization.Value = avgFormatted
 			m.diskUtilization.Unlock()
 		case <-ctx.Done():
 			slog.Debug("disk load monitoring is stopped")

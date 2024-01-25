@@ -4,6 +4,6 @@ import "sync"
 
 type Utilization struct {
 	sync.Mutex
-	Value    float64
+	Value    string
 	LoadZone string
 }
