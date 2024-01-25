@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"health-checker/internal/models"
 	"health-checker/internal/services"
 	"log/slog"
 	"net/http"
@@ -19,73 +21,50 @@ func NewRouter(m *services.Monitor) *http.ServeMux {
 }
 
 func checkUtilization(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+
 	cpuUsage := monitor.GetCPUUtilizationValue()
-	switch cpuUsage.LoadZone {
-	case services.WarningZone:
-		_, err := w.Write([]byte("CPU utilization exceeds 75%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-		}
-	case services.DangerZone:
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("CPU utilization exceeds 90%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-			return
-		}
-	}
-
 	memUsage := monitor.GetRAMUtilizationValue()
-	switch memUsage.LoadZone {
-	case services.WarningZone:
-		_, err := w.Write([]byte("RAM utilization exceeds 75%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-		}
-	case services.DangerZone:
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("RAM utilization exceeds 90%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-			return
-		}
-	}
-
 	netUsage := monitor.GetNetUtilizationValue()
-	switch netUsage.LoadZone {
-	case services.WarningZone:
-		_, err := w.Write([]byte("Network utilization exceeds 75%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-		}
-	case services.DangerZone:
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("Network utilization exceeds 90%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-			return
-		}
-	}
-
 	diskUsage := monitor.GetDiskUtilizationValue()
-	switch diskUsage.LoadZone {
-	case services.WarningZone:
-		_, err := w.Write([]byte("Disk utilization exceeds 75%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-		}
-	case services.DangerZone:
+
+	if cpuUsage.LoadZone == services.DangerZone ||
+		memUsage.LoadZone == services.DangerZone ||
+		netUsage.LoadZone == services.DangerZone ||
+		diskUsage.LoadZone == services.DangerZone {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("Disk utilization exceeds 90%.\n"))
-		if err != nil {
-			slog.Error("response recording error", "error", err)
-			return
-		}
 	}
 
-	slog.Debug("System utilization:",
-		"CPU", cpuUsage.Value,
-		"RAM", memUsage.Value,
-		"network", netUsage.Value,
-		"disk", diskUsage.Value)
+	html := "<html><head><title>Health Checker</title></head><body><h1>Health Checker</h1><table>"
+	html = writeUtilization(html, "CPU", cpuUsage)
+	html = writeUtilization(html, "RAM", memUsage)
+	html = writeUtilization(html, "Network", netUsage)
+	html = writeUtilization(html, "Disk", diskUsage)
+
+	html += "</table>"
+
+	_, err := fmt.Fprint(w, html)
+	if err != nil {
+		slog.Error("error while writing response", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func writeUtilization(html string, name string, usage *models.Utilization) string {
+	var color string
+	var message string
+
+	switch usage.LoadZone {
+	case services.WarningZone:
+		color = "orange"
+		message = "Warning: High utilization"
+	case services.DangerZone:
+		color = "red"
+		message = "Danger: Critical utilization"
+	default:
+		color = "green"
+	}
+
+	html += fmt.Sprintf("<tr><td>%s</td><td style='color: %s'>%s</td><td>%s</td></tr>", name, color, usage.Value, message)
+	return html
 }

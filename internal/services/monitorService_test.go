@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMonitor_Start(t *testing.T) {
+func Test_Monitor_Start(t *testing.T) {
 	monitor := NewMonitor()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
