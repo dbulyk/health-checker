@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"health-checker/internal/models"
 	"health-checker/internal/services"
 	"log/slog"
@@ -17,6 +18,7 @@ func NewRouter(m *services.Monitor) *http.ServeMux {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/check", checkUtilization)
+	mux.Handle("/metrics", promhttp.Handler())
 	return mux
 }
 
