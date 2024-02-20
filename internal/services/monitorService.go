@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/yusufpapurcu/wmi"
 	"health-checker/internal/configs"
 	"health-checker/internal/models"
@@ -45,6 +47,32 @@ type Monitor struct {
 	netUtilization  models.Utilization
 	diskUtilization models.Utilization
 }
+
+var (
+	cpu = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "cpu_utilization",
+			Help: "Утилизация процессора",
+		})
+
+	memory = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "memory_utilization",
+			Help: "Утилизация оперативной памяти",
+		})
+
+	diskIO = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "disk_utilization",
+			Help: "Утилизация I/O диска",
+		})
+
+	network = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "network_utilization",
+			Help: "Утилизация сети",
+		})
+)
 
 func NewMonitor() *Monitor {
 	return &Monitor{}
@@ -160,6 +188,7 @@ func (m *Monitor) getCPUUtilization(ctx context.Context, interval time.Duration)
 
 			m.cpuUtilization.Value = cpuUtilFormatted
 			m.cpuUtilization.Unlock()
+			cpu.Set(cpuUtil)
 
 			slog.Debug("", "CPU load", cpuUtilFormatted)
 		case <-ctx.Done():
@@ -240,6 +269,7 @@ func (m *Monitor) getRAMUtilization(ctx context.Context, interval time.Duration)
 			}
 			m.ramUtilization.Value = avgFormatted
 			m.ramUtilization.Unlock()
+			memory.Set(avg)
 		case <-ctx.Done():
 			slog.Debug("RAM load monitoring is stopped")
 			return nil
@@ -308,6 +338,7 @@ func (m *Monitor) getNetUtilization(ctx context.Context, interval time.Duration)
 			}
 			m.netUtilization.Value = avgFormatted
 			m.netUtilization.Unlock()
+			network.Set(avg)
 		case <-ctx.Done():
 			slog.Debug("network load monitoring is stopped")
 			return nil
@@ -363,12 +394,12 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			}
 			m.diskUtilization.Value = avgFormatted
 			m.diskUtilization.Unlock()
+			diskIO.Set(avg)
 		case <-ctx.Done():
 			slog.Debug("disk load monitoring is stopped")
 			return nil
 		}
 	}
-
 }
 
 func (m *Monitor) GetCPUUtilizationValue() *models.Utilization {
@@ -384,8 +415,5 @@ func (m *Monitor) GetNetUtilizationValue() *models.Utilization {
 }
 
 func (m *Monitor) GetDiskUtilizationValue() *models.Utilization {
-	m.diskUtilization.Lock()
-	defer m.diskUtilization.Unlock()
-
 	return &m.diskUtilization
 }

@@ -14,7 +14,7 @@ import (
 
 func Test_CheckUtilization_AllNormal(t *testing.T) {
 	m := &services.Monitor{}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 
 	c := configs.Checker{
@@ -36,11 +36,14 @@ func Test_CheckUtilization_AllNormal(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "RAM")
 	assert.Contains(t, rr.Body.String(), "Network")
 	assert.Contains(t, rr.Body.String(), "Disk")
+
+	ctx.Done()
+	time.Sleep(time.Second)
 }
 
 func Test_CheckUtilization_WithWarningZone(t *testing.T) {
 	m := &services.Monitor{}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	c := configs.Checker{
@@ -65,11 +68,14 @@ func Test_CheckUtilization_WithWarningZone(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Network")
 	assert.Contains(t, rr.Body.String(), "Disk")
 	assert.Contains(t, rr.Body.String(), "Warning: High utilization")
+
+	ctx.Done()
+	time.Sleep(time.Second)
 }
 
 func Test_CheckUtilization_WithDangerZone(t *testing.T) {
 	m := &services.Monitor{}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	c := configs.Checker{
@@ -94,4 +100,7 @@ func Test_CheckUtilization_WithDangerZone(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Network")
 	assert.Contains(t, rr.Body.String(), "Disk")
 	assert.Contains(t, rr.Body.String(), "Danger: Critical utilization")
+
+	ctx.Done()
+	time.Sleep(time.Second)
 }
