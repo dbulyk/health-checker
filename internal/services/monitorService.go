@@ -41,6 +41,12 @@ type networkName struct {
 	InterfaceDescription string
 }
 
+type diskFreeSpace struct {
+	FreeSpace uint64
+	Size      uint64
+	Name      string
+}
+
 type Monitor struct {
 	cpuUtilization  models.Utilization
 	ramUtilization  models.Utilization
@@ -79,39 +85,48 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
+	//go func() {
+	//	slog.Debug("monitoring of the processor load is started")
+	//
+	//	err := m.getCPUUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("processor data retrieval error", "error", err)
+	//	}
+	//}()
+	//
+	//go func() {
+	//	slog.Debug("RAM load monitoring started")
+	//
+	//	err := m.getRAMUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("RAM data retrieval error", "error", err)
+	//	}
+	//}()
+	//
+	//go func() {
+	//	slog.Debug("network load monitoring started")
+	//
+	//	err := m.getNetUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("network data retrieval error", "error", err)
+	//	}
+	//}()
+	//
+	//go func() {
+	//	slog.Debug("disk load monitoring started")
+	//
+	//	err := m.getDiskUtilization(ctx, cfg.Interval)
+	//	if err != nil {
+	//		slog.Error("disk data retrieval error", "error", err)
+	//	}
+	//}()
+
 	go func() {
-		slog.Debug("monitoring of the processor load is started")
+		slog.Debug("disk free space monitoring started")
 
-		err := m.getCPUUtilization(ctx, cfg.Interval)
+		err := m.GetDiskFreeSpace(ctx, cfg.Interval)
 		if err != nil {
-			slog.Error("processor data retrieval error", "error", err)
-		}
-	}()
-
-	go func() {
-		slog.Debug("RAM load monitoring started")
-
-		err := m.getRAMUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("RAM data retrieval error", "error", err)
-		}
-	}()
-
-	go func() {
-		slog.Debug("network load monitoring started")
-
-		err := m.getNetUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("network data retrieval error", "error", err)
-		}
-	}()
-
-	go func() {
-		slog.Debug("disk load monitoring started")
-
-		err := m.getDiskUtilization(ctx, cfg.Interval)
-		if err != nil {
-			slog.Error("disk data retrieval error", "error", err)
+			slog.Error("disk free space data retrieval error", "error", err)
 		}
 	}()
 }
@@ -397,6 +412,64 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			diskIO.Set(avg)
 		case <-ctx.Done():
 			slog.Debug("disk load monitoring is stopped")
+			return nil
+		}
+	}
+}
+
+func (m *Monitor) GetDiskFreeSpace(ctx context.Context, interval time.Duration) error {
+	var (
+		diskMetrics      map[string]prometheus.Gauge
+		diskInfo         []diskFreeSpace
+		freeSpaceRounded string
+		freeSpace        float64
+		err              error
+	)
+
+	query := "SELECT FreeSpace, Size, Name FROM Win32_LogicalDisk"
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	err = wmi.Query(query, &diskInfo)
+	if err != nil {
+		return err
+	}
+	if len(diskInfo) == 0 {
+		return errors.New("no disk data")
+	}
+
+	for _, v := range diskInfo {
+		freeSpace = float64(v.FreeSpace) / 1024 / 1024 / 1024
+		freeSpaceRounded = fmt.Sprintf("%.2f", freeSpace)
+		slog.Debug("", "disk free space in GB", freeSpaceRounded, "disk size", v.Size, "disk name", v.Name)
+
+		diskMetrics[v.Name] = promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "disk_info_" + v.Name,
+				Help: "Свободное место на диске " + v.Name,
+			})
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			err = wmi.Query(query, &diskInfo)
+			if err != nil {
+				return err
+			}
+			if len(diskInfo) == 0 {
+				return errors.New("no disk data")
+			}
+
+			for _, v := range diskInfo {
+				freeSpace = float64(v.FreeSpace) / 1024 / 1024 / 1024
+				freeSpaceRounded = fmt.Sprintf("%.2f", freeSpace)
+				slog.Debug("", "disk free space in GB", freeSpaceRounded, "disk size", v.Size, "disk name", v.Name)
+
+				diskMetrics[v.Name].Set(freeSpace)
+			}
+		case <-ctx.Done():
+			slog.Debug("disk free space monitoring is stopped")
 			return nil
 		}
 	}
