@@ -41,6 +41,12 @@ type networkName struct {
 	InterfaceDescription string
 }
 
+type diskFreeSpace struct {
+	FreeSpace uint64
+	Size      uint64
+	Name      string
+}
+
 type Monitor struct {
 	cpuUtilization  models.Utilization
 	ramUtilization  models.Utilization
@@ -112,6 +118,15 @@ func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
 		err := m.getDiskUtilization(ctx, cfg.Interval)
 		if err != nil {
 			slog.Error("disk data retrieval error", "error", err)
+		}
+	}()
+
+	go func() {
+		slog.Debug("disk free space monitoring started")
+
+		err := m.GetDiskFreeSpace(ctx, cfg.Interval)
+		if err != nil {
+			slog.Error("disk free space data retrieval error", "error", err)
 		}
 	}()
 }
@@ -397,6 +412,65 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 			diskIO.Set(avg)
 		case <-ctx.Done():
 			slog.Debug("disk load monitoring is stopped")
+			return nil
+		}
+	}
+}
+
+func (m *Monitor) GetDiskFreeSpace(ctx context.Context, interval time.Duration) error {
+	var (
+		diskInfo         []diskFreeSpace
+		freeSpaceRounded string
+		freeSpace        float64
+		err              error
+	)
+
+	diskMetrics := make(map[string]prometheus.Gauge)
+
+	query := "SELECT FreeSpace, Size, Name FROM Win32_LogicalDisk"
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	err = wmi.Query(query, &diskInfo)
+	if err != nil {
+		return err
+	}
+	if len(diskInfo) == 0 {
+		return errors.New("no disk data")
+	}
+
+	for _, v := range diskInfo {
+		freeSpace = float64(v.FreeSpace) / 1024 / 1024 / 1024
+		freeSpaceRounded = fmt.Sprintf("%.2f", freeSpace)
+		slog.Debug("", "disk free space in GB", freeSpaceRounded, "disk size", v.Size, "disk name", v.Name)
+
+		diskMetrics[v.Name] = promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "disk_info_" + v.Name,
+				Help: "Свободное место на диске " + v.Name,
+			})
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			err = wmi.Query(query, &diskInfo)
+			if err != nil {
+				return err
+			}
+			if len(diskInfo) == 0 {
+				return errors.New("no disk data")
+			}
+
+			for _, v := range diskInfo {
+				freeSpace = float64(v.FreeSpace) / 1024 / 1024 / 1024
+				freeSpaceRounded = fmt.Sprintf("%.2f", freeSpace)
+				slog.Debug("", "disk free space in GB", freeSpaceRounded, "disk size", v.Size, "disk name", v.Name)
+
+				diskMetrics[v.Name].Set(freeSpace)
+			}
+		case <-ctx.Done():
+			slog.Debug("disk free space monitoring is stopped")
 			return nil
 		}
 	}
