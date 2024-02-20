@@ -419,12 +419,13 @@ func (m *Monitor) getDiskUtilization(ctx context.Context, interval time.Duration
 
 func (m *Monitor) GetDiskFreeSpace(ctx context.Context, interval time.Duration) error {
 	var (
-		diskMetrics      map[string]prometheus.Gauge
 		diskInfo         []diskFreeSpace
 		freeSpaceRounded string
 		freeSpace        float64
 		err              error
 	)
+
+	diskMetrics := make(map[string]prometheus.Gauge)
 
 	query := "SELECT FreeSpace, Size, Name FROM Win32_LogicalDisk"
 	ticker := time.NewTicker(time.Hour)
