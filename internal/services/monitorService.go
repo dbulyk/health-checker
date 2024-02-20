@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/yusufpapurcu/wmi"
 	"health-checker/internal/configs"
 	"health-checker/internal/models"
@@ -48,25 +49,25 @@ type Monitor struct {
 }
 
 var (
-	cpu = prometheus.NewGauge(
+	cpu = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "cpu_utilization",
 			Help: "Утилизация процессора",
 		})
 
-	memory = prometheus.NewGauge(
+	memory = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "memory_utilization",
 			Help: "Утилизация оперативной памяти",
 		})
 
-	diskIO = prometheus.NewGauge(
+	diskIO = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "disk_utilization",
 			Help: "Утилизация I/O диска",
 		})
 
-	network = prometheus.NewGauge(
+	network = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "network_utilization",
 			Help: "Утилизация сети",
@@ -78,7 +79,6 @@ func NewMonitor() *Monitor {
 }
 
 func (m *Monitor) Start(ctx context.Context, cfg configs.Checker) {
-	prometheus.MustRegister(cpu, memory, diskIO, network)
 	go func() {
 		slog.Debug("monitoring of the processor load is started")
 
