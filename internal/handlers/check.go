@@ -53,8 +53,10 @@ func checkUtilization(w http.ResponseWriter, _ *http.Request) {
 }
 
 func writeUtilization(html string, name string, usage *models.Utilization) string {
-	var color string
-	var message string
+	var (
+		color   string
+		message string
+	)
 
 	switch usage.LoadZone {
 	case services.WarningZone:
