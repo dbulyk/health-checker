@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"health-checker/internal/models"
 	"health-checker/internal/services"
 	"log/slog"
 	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
